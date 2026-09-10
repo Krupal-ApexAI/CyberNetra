@@ -1,87 +1,181 @@
-# CYBERNETRA AI — AI-Based Network Attack Forecasting System
-### Smart India Hackathon (SIH26153) | Theme: Blockchain & Cybersecurity | Organization: NTRO
+# CyberNetra AI
 
-CYBERNETRA AI is a predictive cyber defense prototype that ingests network traffic telemetry, identifies active threat vectors, and **forecasts the impending next attack stage** before full compromise occurs.
-
----
-
-## ?? Key Capabilities
-1. **Real-Time Traffic Analysis**: Ingests flow telemetry (packet frequency, volume, connection attempts, authentication failures).
-2. **Attack Stage Forecasting (The Star Feature ?)**: Predicts the attacker's next phase with confidence scoring and MITRE ATT&CK kill-chain mapping.
-3. **Explainable AI (XAI) Engine**:
-   - **What Happened Until Now**: Retrospective evidence trail of anomalous indicators against baseline standard deviations.
-   - **What's Going to Happen Next**: Prospective attack trajectory, targeted assets, and time-to-impact ETA.
-   - **Automated Mitigation Playbook**: Actionable containment steps for SOC operators.
-4. **Drop-in Model Architecture (`backend/models/saved_models/`)**: Drop your PyTorch (`.pt`), Scikit-Learn (`.pkl`), or ONNX models into `saved_models/`; the system auto-detects and runs inference without code changes.
-5. **Interactive Live Simulation**: 1-click scenario injection (Normal, Suspicious Recon, Attack Progression, Volumetric DDoS).
+> **AI-Powered Threat Intelligence & Predictive Network Attack Forecasting System**  
+> *Smart India Hackathon (SIH26153) | Theme: Blockchain & Cybersecurity | Organization: NTRO*
 
 ---
 
-## ?? Quick Start Guide
+## Overview
+
+**CyberNetra AI** is a next-generation predictive cybersecurity defense platform. Unlike conventional SIEMs and IDS tools that only flag attacks after damage has begun, CyberNetra ingests live network flow telemetry, classifies active threat vectors, and **forecasts the attacker's next attack phase** before full compromise occurs.
+
+Combined with an **Explainable AI (XAI)** engine, CyberNetra gives SOC analysts actionable insights:
+1. **What Happened Until Now**: Retrospective evidence and baseline anomaly detection.
+2. **What Is Going To Happen Next**: Prospective attack trajectory, targeted assets, and time-to-impact ETA.
+3. **Automated Containment Playbook**: Prescriptive remediation steps ready for execution.
+
+---
+
+## Key Capabilities
+
+- **Real-Time Telemetry Analysis**: Continuous stream processing of flow volumes, packet frequencies, connection attempt spikes, and authentication failures.
+- **Predictive Attack Progression (Flagship Feature)**: Multi-stage LSTM and Bayesian transition models forecasting subsequent adversary stages mapped to the **MITRE ATT&CK** kill chain.
+- **Explainable AI (XAI) Engine**:
+  - Transparent feature attribution identifying root causes behind threat alerts.
+  - Anomaly scoring against 3-sigma baseline deviations.
+- **Extensible Model Registry (`backend/models/saved_models/`)**: Drop PyTorch (`.pt`), Scikit-Learn (`.pkl`), or ONNX models directly into the registry folder for automatic dynamic loading without restarts.
+- **Interactive SOC Simulation**: Ingest realistic telemetry across 4 operational scenarios (*Normal Baseline*, *Suspicious Reconnaissance*, *Multi-Stage Attack Progression*, and *Volumetric DDoS*).
+
+---
+
+## MITRE ATT&CK Kill-Chain Mapping
+
+| Kill-Chain Stage | Technique ID | Observed Indicators | Predictive Next Stage |
+| :--- | :--- | :--- | :--- |
+| **Reconnaissance** | T1046 (Network Service Discovery) | High SYN rates, multi-port scans | Credential Access / Brute Force (T1110) |
+| **Initial Access / Auth** | T1110 (Brute Force) | SSH/RDP failure spikes, user enumeration | Privilege Escalation (T1068) |
+| **Privilege Escalation** | T1068 (Exploitation for Privilege) | Unauthorized sudo attempts, token forging | Lateral Movement / Data Exfiltration (T1041) |
+| **Impact / Denial** | T1498 (Network Denial of Service) | Volumetric UDP/ICMP flood, bandwidth saturation | Service Outage & Gateway Degradation |
+
+---
+
+## Architecture & Tech Stack
+
+### Frontend
+- **Framework**: React 18 + Vite
+- **Styling**: Tailwind CSS (Cyberpunk/Dark SOC theme)
+- **Visualizations**: Recharts (Dual-axis telemetry timeline, risk radial gauge)
+- **Icons**: Lucide React
+
+### Backend
+- **Framework**: FastAPI (Asynchronous Python 3.10+)
+- **Data & ML**: NumPy, Pandas, Scikit-Learn, PyTorch / Joblib
+- **Validation**: Pydantic v2
+- **Server**: Uvicorn ASGI
+
+---
+
+## Project Structure
+
+```text
+CyberNetra/
+├── backend/
+│   ├── main.py                     # FastAPI application entrypoint and routes
+│   ├── requirements.txt            # Python dependencies
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── schemas.py              # Pydantic request/response models
+│   │   ├── model_loader.py         # Dynamic ML/DL model auto-detector
+│   │   └── saved_models/           # Model weight storage (.pkl, .pt, .onnx)
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── traffic_analyzer.py     # Flow telemetry processor
+│   │   ├── threat_detector.py      # Active threat vector classifier
+│   │   ├── forecast_engine.py      # LSTM / Markov attack stage forecaster
+│   │   ├── risk_calculator.py      # Composite risk scoring engine (0-100)
+│   │   ├── explainability_engine.py# Retrospective & prospective XAI generator
+│   │   └── training_engine.py      # Automated dataset training pipeline
+│   └── data/
+│       ├── simulated_traffic.json  # Multi-scenario network telemetry
+│       └── datasets/               # Benchmark datasets (e.g. UNSW-NB15)
+│
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx                 # Dashboard state and layout
+│   │   ├── index.css               # Design system & dark cyber theme
+│   │   ├── services/
+│   │   │   └── api.js              # Backend REST client
+│   │   └── components/
+│   │       ├── Header.jsx          # SOC status header & system pulse
+│   │       ├── Navbar.jsx          # Primary navigation tabs
+│   │       ├── StatCards.jsx       # Threat posture and network metrics
+│   │       ├── TrafficChart.jsx    # Dual-axis real-time telemetry chart
+│   │       ├── RiskScore.jsx       # Radial SVG threat gauge
+│   │       ├── AttackForecast.jsx  # MITRE ATT&CK progression forecast
+│   │       ├── ExplainabilityPanel.jsx # XAI retrospective & prospective cards
+│   │       ├── Alerts.jsx          # Live incident alerts stream
+│   │       ├── SimulationControls.jsx # 4-scenario simulation switcher
+│   │       └── ModelRegistryView.jsx  # ML model deployment & upload manager
+│   ├── package.json
+│   └── vite.config.js
+│
+├── .gitignore
+└── README.md
+```
+
+---
+
+## Quick Start Guide
 
 ### Prerequisites
-- Python 3.10+
-- Node.js 18+ and npm
+- **Python**: 3.10 or higher
+- **Node.js**: 18+ and `npm`
 
-### 1. Start the FastAPI Backend
+---
+
+### 1. Backend Setup
+
 ```bash
-# In project root
+# Clone the repository
+git clone https://github.com/Krupal-ApexAI/CyberNetra.git
+cd CyberNetra
+
+# Install Python dependencies
+pip install -r backend/requirements.txt
+
+# Launch FastAPI backend server
 python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
-- API Base URL: `http://localhost:8000`
-- Interactive OpenAPI Docs: `http://localhost:8000/docs`
 
-### 2. Start the React Frontend
+- Backend API: `http://localhost:8000`
+- Interactive Swagger Docs: `http://localhost:8000/docs`
+- Health Check: `http://localhost:8000/api/health`
+
+---
+
+### 2. Frontend Setup
+
 ```bash
+# In a new terminal, navigate to frontend directory
 cd frontend
-npm run dev -- --host
+
+# Install dependencies
+npm install
+
+# Start the Vite development server
+npm run dev
 ```
+
 - Web Dashboard: `http://localhost:5173`
 
 ---
 
-## ?? Project Structure
-```
-d:\Projects\SIH_2026?
-??? backend/
-?   ??? main.py                         # FastAPI application and routes
-?   ??? requirements.txt                # Python dependencies
-?   ??? models/
-?   ?   ??? schemas.py                  # Pydantic data schemas
-?   ?   ??? model_loader.py             # Auto-detects custom ML models
-?   ?   ??? saved_models/               # [DUMP YOUR ML/DL MODELS HERE]
-?   ??? services/
-?   ?   ??? traffic_analyzer.py         # Telemetry feature extractor
-?   ?   ??? threat_detector.py          # Active threat vector classification
-?   ?   ??? forecast_engine.py          # Attack stage progression forecaster
-?   ?   ??? risk_calculator.py          # 0-100 composite risk scoring
-?   ?   ??? explainability_engine.py    # Retrospective & prospective XAI
-?   ??? data/
-?       ??? simulated_traffic.json      # Realistic 15-minute telemetry datasets
-?
-??? frontend/
-?   ??? src/
-?   ?   ??? App.jsx                     # Centralized state & dashboard layout
-?   ?   ??? index.css                   # Tailwind CSS v4 & cybernetic theme
-?   ?   ??? services/api.js             # API connector to FastAPI backend
-?   ?   ??? components/
-?   ?       ??? Header.jsx              # Status, branding & live pulse
-?   ?       ??? SimulationControls.jsx  # 4-scenario simulation switcher
-?   ?       ??? StatCards.jsx           # Posture, endpoints, anomaly ratio
-?   ?       ??? TrafficChart.jsx        # Dual-axis Recharts telemetry timeline
-?   ?       ??? RiskScore.jsx           # Radial SVG risk gauge (0-100)
-?   ?       ??? AttackForecast.jsx      # MITRE ATT&CK progression chain
-?   ?       ??? ExplainabilityPanel.jsx # "What Happened" + "What's Next"
-?   ?       ??? Alerts.jsx              # SOC alert feed with filters
-?   ??? package.json
-?
-??? README.md
-```
+## Simulation & Demo Flow
+
+1. **Normal Baseline**:
+   - Clean network posture with risk score (~10/100) and nominal traffic (~178 pkts/s).
+2. **Suspicious Reconnaissance**:
+   - Triggers network scanning detection (MITRE T1046). The forecast engine predicts an imminent credential attack.
+3. **Attack Progression**:
+   - Detects repeated authentication failures (54 failed logins). Risk elevates to 77/100, and the system forecasts **Privilege Escalation within 5-10 minutes**.
+4. **Volumetric DDoS**:
+   - Ingests high-frequency flood (>21,000 pkts/s). The system activates automatic rate-limiting and IP blacklisting recommendations.
 
 ---
 
-## ?? 2-Minute Demo Flow for Judges
-1. **Normal Baseline**: Show healthy network (10/100 risk, stable ~178 pkts/s).
-2. **Suspicious Recon**: Click *Suspicious Recon* ? system detects subnet port scanning (MITRE T1046) and warns of credential spraying.
-3. **Attack Progression ?**: Click *Attack Progression* ? risk jumps to 77/100. System highlights 54 failed logins and **forecasts privilege escalation in 5-10 minutes**.
-4. **DDoS Attack**: Click *DDoS Attack* ? volumetric flood (21,800 pkts/s) triggers imminent service outage warnings and mitigation playbooks.
+## API Endpoints Reference
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/health` | Service health status and uptime |
+| `GET` | `/api/scenarios` | List available simulation scenarios |
+| `POST` | `/api/analyze` | Analyze network telemetry and generate threat forecast |
+| `GET` | `/api/models` | List loaded ML/DL models in the registry |
+| `POST` | `/api/models/upload` | Upload new weights (`.pkl`, `.pt`, `.onnx`) |
+| `POST` | `/api/models/train` | Trigger training pipeline on benchmark datasets |
+
+---
+
+## License
+
+This project is developed for the **Smart India Hackathon (SIH 2026)** under the MIT License.
