@@ -80,16 +80,31 @@ It ingests high-velocity network flow telemetry, identifies active attack vector
 
 ## ⚡ How It Works: End-to-End Pipeline
 
-```mermaid
-graph LR
-    A[Network Telemetry<br/>Flows & PCAP] --> B[Traffic Analyzer]
-    B --> C[ML Model Registry<br/>LSTM / Scikit-Learn]
-    C --> D[Active Threat Classifier]
-    C --> E[Predictive Stage Forecaster]
-    D & E --> F[Explainability XAI Engine]
-    D & E --> G[Composite Risk Calculator]
-    F & G --> H[React SOC Dashboard]
-    F & G --> I[Automated Mitigation Playbook]
+```text
+┌──────────────────────┐      ┌────────────────────┐      ┌─────────────────────────────────┐
+│  Network Telemetry   │ ───► │  Traffic Analyzer  │ ───► │        ML Model Registry        │
+│    (Flows & PCAP)    │      │ (Feature Extractor)│      │ (LSTM Sequence & Bayesian Trees)│
+└──────────────────────┘      └────────────────────┘      └────────────────┬────────────────┘
+                                                                           │
+                                              ┌────────────────────────────┴────────────────────────────┐
+                                              ▼                                                         ▼
+                                 ┌─────────────────────────┐                               ┌─────────────────────────┐
+                                 │ Active Threat Detection │                               │ Predictive Stage Fore-  │
+                                 │ (Classifies Real-Time)  │                               │ cast (Kill-Chain ETA)   │
+                                 └────────────┬────────────┘                               └────────────┬────────────┘
+                                              │                                                         │
+                                              └────────────────────────────┬────────────────────────────┘
+                                                                           ▼
+                                              ┌─────────────────────────────────────────────────────────┐
+                                              │    Explainability Engine & Composite Risk Index (0-100)  │
+                                              └────────────────────────────┬────────────────────────────┘
+                                                                           │
+                                              ┌────────────────────────────┴────────────────────────────┐
+                                              ▼                                                         ▼
+                                 ┌─────────────────────────┐                               ┌─────────────────────────┐
+                                 │ Real-Time SOC Dashboard │                               │ Automated Mitigation    │
+                                 │ (React + Recharts + XAI)│                               │ Playbook & Firewall Rule│
+                                 └─────────────────────────┘                               └─────────────────────────┘
 ```
 
 1. **Telemetry Ingestion**: Continuous ingestion of raw flow metrics (packets/sec, bytes/sec, SYN flag ratios, failed login attempts, port distribution).
