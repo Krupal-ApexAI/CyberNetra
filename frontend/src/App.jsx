@@ -8,6 +8,7 @@ import AttackForecast from './components/AttackForecast';
 import ExplainabilityPanel from './components/ExplainabilityPanel';
 import Alerts from './components/Alerts';
 import ModelRegistryView from './components/ModelRegistryView';
+import LogAnalysis from './components/LogAnalysis';
 
 import {
   fetchDashboard,
@@ -200,7 +201,14 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB 6: MODEL REGISTRY */}
+          {/* TAB 6: LOG ANALYSIS */}
+          {activeTab === 'loganalysis' && (
+            <div className="space-y-6">
+              <LogAnalysis />
+            </div>
+          )}
+
+          {/* TAB 7: MODEL REGISTRY */}
           {activeTab === 'models' && (
             <div className="space-y-6">
               <ModelRegistryView modelInfo={modelInfo} />

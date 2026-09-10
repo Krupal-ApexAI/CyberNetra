@@ -354,70 +354,91 @@ def extract_feature_evidence(
     """
     Extract the most important features contributing to the model's prediction.
 
-    Uses model.feature_importances_ (available for RF and XGBoost) combined
-    with the actual feature values to identify the top contributing features.
+    Handles sklearn Pipeline models (ColumnTransformer + RF/XGB classifier).
+    Maps transformed feature importances back to original feature names.
 
     Returns list of {"feature", "value", "importance"} dicts.
     """
     evidence = []
 
-    if not hasattr(model, "feature_importances_"):
-        return evidence
-
-    importances = model.feature_importances_
-    feature_names = [k for k in feature_values.keys()
-                     if k not in ("proto", "service", "state")]
-
-    # For numerical features, pair importance with value
-    for feat_name in feature_names:
-        if feat_name in feature_values:
-            # Find the feature index in the model's feature list
-            val = feature_values[feat_name]
-            if isinstance(val, str):
-                continue  # Skip categorical for importance display
-            evidence.append({
-                "feature": feat_name,
-                "value": float(val),
-                "importance": 0.0,  # Will be filled below
-            })
-
-    # Map importances to numerical features
-    # The binary model was trained on all 43 features including encoded categoricals
-    # feature_importances_ length may differ from raw feature count due to encoding
-    # We'll use the feature names from feature_info to map correctly
     try:
+        # Extract the actual classifier from a Pipeline
+        classifier = model
+        if hasattr(model, "named_steps"):
+            # It's a Pipeline — get the last step (classifier)
+            last_step_name = model.steps[-1][0]
+            classifier = model.named_steps[last_step_name]
+
+        if not hasattr(classifier, "feature_importances_"):
+            return evidence
+
+        importances = classifier.feature_importances_
+
         from backend.models.model_loader import model_loader
         expected_features = model_loader.get_binary_features()
-        numerical = model_loader.get_numerical_features()
+        categorical = set(model_loader.get_categorical_features())
 
-        # If the model has same number of importances as features (no encoding),
-        # map directly
+        # If importances count matches raw features, direct mapping
         if len(importances) == len(expected_features):
             imp_map = dict(zip(expected_features, importances))
-            for item in evidence:
-                item["importance"] = float(imp_map.get(item["feature"], 0.0))
         else:
-            # Fallback: distribute importances proportionally
-            total_imp = float(np.sum(importances))
-            if total_imp > 0:
-                # Use the top importances from the model
-                top_indices = np.argsort(importances)[-top_n:][::-1]
-                for idx in top_indices:
-                    if idx < len(expected_features):
-                        fname = expected_features[idx]
-                        if fname in feature_values and not isinstance(feature_values[fname], str):
-                            found = False
-                            for item in evidence:
-                                if item["feature"] == fname:
-                                    item["importance"] = float(importances[idx])
-                                    found = True
-                                    break
-                            if not found:
-                                evidence.append({
-                                    "feature": fname,
-                                    "value": float(feature_values.get(fname, 0)),
-                                    "importance": float(importances[idx]),
-                                })
+            # Pipeline expanded categoricals via one-hot encoding.
+            # Aggregate importances back to original feature names.
+            imp_map = {}
+
+            # Try to get transformed feature names from the preprocessor
+            transformed_names = None
+            if hasattr(model, "named_steps"):
+                preprocessor = model.named_steps.get("preprocessor")
+                if preprocessor and hasattr(preprocessor, "get_feature_names_out"):
+                    try:
+                        transformed_names = list(preprocessor.get_feature_names_out())
+                    except Exception:
+                        pass
+
+            if transformed_names and len(transformed_names) == len(importances):
+                # Map each transformed feature back to its original
+                for tname, imp in zip(transformed_names, importances):
+                    # Transformed names are like "num__sbytes" or "cat__proto_tcp"
+                    # Extract the original feature name
+                    orig_name = tname
+                    if "__" in tname:
+                        orig_name = tname.split("__", 1)[1]
+                    # For one-hot: "proto_tcp" -> "proto"
+                    for cat in categorical:
+                        if orig_name.startswith(cat + "_"):
+                            orig_name = cat
+                            break
+                    imp_map[orig_name] = imp_map.get(orig_name, 0.0) + float(imp)
+            else:
+                # Fallback: use top importances by index
+                for feat_name in expected_features:
+                    if feat_name not in categorical:
+                        imp_map[feat_name] = 0.0
+
+                # Assign top importances to numerical features proportionally
+                total_imp = float(np.sum(importances))
+                num_features = [f for f in expected_features if f not in categorical]
+                if total_imp > 0 and num_features:
+                    per_feat = total_imp / len(num_features)
+                    for feat in num_features:
+                        imp_map[feat] = per_feat
+
+        # Build evidence list with numerical features only
+        for feat_name in expected_features:
+            if feat_name in categorical:
+                continue  # Skip categoricals for display
+            val = feature_values.get(feat_name, 0)
+            if isinstance(val, str):
+                continue
+            importance = float(imp_map.get(feat_name, 0.0))
+            if importance > 0:
+                evidence.append({
+                    "feature": feat_name,
+                    "value": float(val),
+                    "importance": round(importance, 6),
+                })
+
     except Exception:
         pass
 

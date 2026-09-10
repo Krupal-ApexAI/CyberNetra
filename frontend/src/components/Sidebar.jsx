@@ -12,7 +12,8 @@ import {
   Shield,
   Layers,
   Radio,
-  ExternalLink
+  ExternalLink,
+  ScrollText
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -54,6 +55,12 @@ export default function Sidebar({
       icon: ShieldAlert,
       badge: alertCount > 0 ? `${alertCount}` : null,
       badgeColor: 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+    },
+    {
+      id: 'loganalysis',
+      label: 'Log Analysis',
+      icon: ScrollText,
+      badge: 'ML + AI'
     },
     {
       id: 'models',

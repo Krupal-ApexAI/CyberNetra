@@ -83,7 +83,7 @@ class ModelLoader:
             try:
                 obj = joblib.load(filepath)
                 setattr(self, attr, obj)
-                print(f"[ModelLoader] ✓ Loaded {filename}")
+                print(f"[ModelLoader] [OK] Loaded {filename}")
             except Exception as e:
                 self._load_errors.append(f"Failed to load {filename}: {e}")
                 print(f"[ModelLoader] ERROR loading {filename}: {e}")
@@ -94,7 +94,7 @@ class ModelLoader:
             try:
                 with open(config_path, "r", encoding="utf-8") as f:
                     self.model_config = json.load(f)
-                print("[ModelLoader] ✓ Loaded model_config.json")
+                print("[ModelLoader] [OK] Loaded model_config.json")
             except Exception as e:
                 self._load_errors.append(f"Failed to load model_config.json: {e}")
                 print(f"[ModelLoader] ERROR loading model_config.json: {e}")
@@ -112,7 +112,7 @@ class ModelLoader:
         if self.binary_model is not None and self.feature_info:
             self._unsw_loaded = True
             print(
-                f"[ModelLoader] ✓ UNSW-NB15 pipeline ready "
+                f"[ModelLoader] [OK] UNSW-NB15 pipeline ready "
                 f"(threshold={self.binary_threshold}, "
                 f"features={len(self.get_binary_features())})"
             )
@@ -182,12 +182,12 @@ class ModelLoader:
                     import pickle
                     with open(target_file, "rb") as f:
                         self.loaded_model = pickle.load(f)
-                    print(f"[ModelLoader] ✓ Loaded saved model: {self.model_filename}")
+                    print(f"[ModelLoader] [OK] Loaded saved model: {self.model_filename}")
                 elif target_file.endswith((".pt", ".pth")):
                     try:
                         import torch
                         self.loaded_model = torch.load(target_file, map_location="cpu")
-                        print(f"[ModelLoader] ✓ Loaded PyTorch model: {self.model_filename}")
+                        print(f"[ModelLoader] [OK] Loaded PyTorch model: {self.model_filename}")
                     except ImportError:
                         print("[ModelLoader] PyTorch not installed. Skipping saved model.")
                 else:
