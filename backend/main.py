@@ -74,6 +74,13 @@ def read_root():
         "docs_url": "/docs"
     }
 
+@app.get("/api/health")
+def health_check():
+    return {
+        "status": "ok",
+        "service": "cybersecurity-backend"
+    }
+
 @app.get("/api/dashboard", response_model=DashboardStats)
 def get_dashboard():
     records = load_scenario_data(CURRENT_SCENARIO)

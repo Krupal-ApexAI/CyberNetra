@@ -145,7 +145,7 @@ class TrainingEngine:
             pickle.dump(dummy_model_payload, f)
 
         # Notify model_loader of the new model
-        model_loader._detect_and_load_model()
+        model_loader._detect_and_load_saved_model()
 
         return {
             "status": "success",

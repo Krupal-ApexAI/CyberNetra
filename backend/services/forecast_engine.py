@@ -21,9 +21,11 @@ class ForecastEngine:
                 "potential_impact": "Compromise of internal server clusters",
                 "confidence": 89,
                 "risk_level": "HIGH",
-                "model_used": model_info["name"],
+                "model_used": model_info.get("custom_model", {}).get("name", "Unknown Model"),
                 "summary": "Predicted using custom machine learning sequence model."
             }
+
+        model_name = model_info.get("name", model_info.get("custom_model", {}).get("name", "UNSW-NB15 ML Pipeline"))
 
         # Calibrated explainable progression chains
         if "DDoS" in threat_name:
@@ -35,7 +37,7 @@ class ForecastEngine:
                 "potential_impact": "Complete service disruption across mission-critical web portals",
                 "confidence": 92,
                 "risk_level": "CRITICAL",
-                "model_used": model_info["name"],
+                "model_used": model_name,
                 "summary": "Exponential packet surge forecasts immediate downstream gateway failure within 2-4 minutes."
             }
         elif "Brute Force" in threat_name:
@@ -47,7 +49,7 @@ class ForecastEngine:
                 "potential_impact": "Attacker obtains administrative shell access to internal subnet servers",
                 "confidence": 84,
                 "risk_level": "HIGH",
-                "model_used": model_info["name"],
+                "model_used": model_name,
                 "summary": "Sustained dictionary attempts suggest imminent credential compromise followed by lateral movement."
             }
         elif "Scanning" in threat_name:
@@ -59,7 +61,7 @@ class ForecastEngine:
                 "potential_impact": "Probing exposed services (SSH port 22, RDP port 3389) for credential spraying",
                 "confidence": 76,
                 "risk_level": "MEDIUM",
-                "model_used": model_info["name"],
+                "model_used": model_name,
                 "summary": "Active service enumeration pattern strongly correlates with subsequent authentication attacks."
             }
         else:
@@ -71,7 +73,7 @@ class ForecastEngine:
                 "potential_impact": "Network operating under healthy baseline parameters",
                 "confidence": 95,
                 "risk_level": "LOW",
-                "model_used": model_info["name"],
+                "model_used": model_name,
                 "summary": "Flow records demonstrate stable stochastic traffic without malicious anomalies."
             }
 
