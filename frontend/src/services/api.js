@@ -446,3 +446,26 @@ export async function trainModel(config) {
     };
   }
 }
+
+/**
+ * Log Analysis API
+ * POST /api/analyze-logs
+ * Sends raw log text for ML analysis + Gemini explanation.
+ * Extended timeout for ML pipeline + Gemini API processing.
+ */
+export async function analyzeLogsAPI(logs) {
+  const res = await fetch(`${API_BASE}/api/analyze-logs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ logs }),
+    signal: AbortSignal.timeout(60000), // 60s timeout for ML + Gemini
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+    throw new Error(err.detail || `Analysis failed: ${res.status}`);
+  }
+
+  return await res.json();
+}
+
