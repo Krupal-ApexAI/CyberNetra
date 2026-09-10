@@ -1,5 +1,15 @@
-from typing import List, Optional
+"""
+Pydantic schemas for the Log Analysis feature.
+Extends the existing schemas.py with new request/response models.
+"""
+
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
+
+
+# ──────────────────────────────────────────────
+# Existing schemas (preserved as-is)
+# ──────────────────────────────────────────────
 
 class TrafficRecord(BaseModel):
     timestamp: str
@@ -69,3 +79,66 @@ class SimulationResponse(BaseModel):
     status: str
     scenario: str
     message: str
+
+
+# ──────────────────────────────────────────────
+# Log Analysis schemas (new)
+# ──────────────────────────────────────────────
+
+class LogAnalysisRequest(BaseModel):
+    """Request body for POST /api/analyze-logs."""
+    logs: str = Field(
+        ...,
+        min_length=1,
+        max_length=512_000,  # 500KB max
+        description="Multiline network log text to analyze"
+    )
+
+class FeatureEvidence(BaseModel):
+    """A single feature that contributed to the model's prediction."""
+    feature: str
+    value: float
+    importance: float
+
+class LogEventResult(BaseModel):
+    """Per-event ML prediction result."""
+    event_index: int
+    timestamp: Optional[str] = None
+    source_ip: Optional[str] = None
+    source_port: Optional[int] = None
+    destination_ip: Optional[str] = None
+    destination_port: Optional[int] = None
+    protocol: Optional[str] = None
+    prediction: str  # "Normal" or "Attack"
+    detection_confidence: float
+    threshold: float
+    attack_type: Optional[str] = None
+    attack_confidence: Optional[float] = None
+    risk_level: str  # LOW, MEDIUM, HIGH, CRITICAL
+    raw_log: Optional[str] = None
+    important_features: Optional[List[FeatureEvidence]] = None
+    parsing_warnings: Optional[List[str]] = None
+
+class IncidentSummary(BaseModel):
+    """Overall incident summary with optional AI explanation."""
+    classification: str  # "Normal" or dominant attack type
+    confidence: float
+    ai_explanation_available: bool = False
+    summary: Optional[str] = None
+    why_detected: Optional[List[str]] = None
+    evidence: Optional[List[str]] = None
+    risk_level: Optional[str] = None
+    confidence_note: Optional[str] = None
+    recommended_actions: Optional[List[str]] = None
+    analyst_note: Optional[str] = None
+
+class LogAnalysisResponse(BaseModel):
+    """Full response for POST /api/analyze-logs."""
+    analysis_id: str
+    total_events: int
+    normal_events: int
+    attack_events: int
+    dominant_attack: Optional[str] = None
+    events: List[LogEventResult]
+    incident: IncidentSummary
+    parsing_warnings: Optional[List[str]] = None

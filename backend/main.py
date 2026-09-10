@@ -5,7 +5,15 @@ from pathlib import Path
 # Ensure project root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(Path(__file__).resolve().parent.parent, ".env"))
+except ImportError:
+    pass  # python-dotenv not installed; rely on system env vars
+
 import json
+import logging
 from typing import Dict, Any, List
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +25,9 @@ from backend.models.schemas import (
     ExplainabilityResponse,
     AlertsResponse,
     AlertItem,
-    SimulationResponse
+    SimulationResponse,
+    LogAnalysisRequest,
+    LogAnalysisResponse,
 )
 from backend.models.model_loader import model_loader
 from backend.services.traffic_analyzer import traffic_analyzer
@@ -25,6 +35,8 @@ from backend.services.threat_detector import threat_detector
 from backend.services.forecast_engine import forecast_engine
 from backend.services.risk_calculator import risk_calculator
 from backend.services.explainability_engine import explainability_engine
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="CYBERNETRA AI - Network Attack Forecasting System",
@@ -282,3 +294,158 @@ async def upload_dataset_file(file: UploadFile = File(...)):
 def run_model_training(req: TrainingRequest):
     result = training_engine.train_model(req.dict())
     return result
+
+
+# ──────────────────────────────────────────────
+# Log Analysis Endpoint (ML + Gemini pipeline)
+# ──────────────────────────────────────────────
+
+@app.post("/api/analyze-logs")
+async def analyze_logs(request: LogAnalysisRequest):
+    """
+    End-to-end log analysis pipeline:
+    1. Parse network logs
+    2. Map to UNSW-NB15 features
+    3. Binary detection (Random Forest, threshold 0.30)
+    4. Attack classification (XGBoost) if attack detected
+    5. Feature evidence extraction
+    6. Gemini AI explanation (if attack detected)
+    7. Return structured security analysis
+    """
+    from backend.services.log_parser import parse_logs
+    from backend.services.predictor import predict_batch, generate_analysis_id
+    from backend.services.gemini_service import get_gemini_explanation
+
+    # Step 1: Parse logs
+    try:
+        parsed = parse_logs(request.logs)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if not parsed["events"]:
+        raise HTTPException(
+            status_code=400,
+            detail="No valid network events found in the input. "
+                   "Please check the log format."
+        )
+
+    # Step 2-4: ML prediction pipeline
+    try:
+        prediction_results = predict_batch(parsed["events"])
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        logger.error("Prediction pipeline failed: %s", str(e), exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="ML prediction pipeline encountered an error."
+        )
+
+    analysis_id = generate_analysis_id(request.logs)
+
+    # Step 5: Build incident summary
+    events = prediction_results["events"]
+    attack_events = [e for e in events if e["prediction"] == "Attack"]
+    normal_events = [e for e in events if e["prediction"] == "Normal"]
+
+    # Determine dominant attack and aggregate confidence
+    dominant_attack = prediction_results.get("dominant_attack")
+    avg_detection_conf = 0.0
+    avg_attack_conf = 0.0
+
+    if attack_events:
+        avg_detection_conf = sum(
+            e["detection_confidence"] for e in attack_events
+        ) / len(attack_events)
+        confs = [e["attack_confidence"] for e in attack_events
+                 if e.get("attack_confidence")]
+        avg_attack_conf = sum(confs) / len(confs) if confs else 0.0
+
+    # Collect feature evidence from the most confident attack event
+    feature_evidence = []
+    if attack_events:
+        best_attack = max(attack_events, key=lambda e: e["detection_confidence"])
+        feature_evidence = best_attack.get("important_features", [])
+
+    # Step 6: Gemini explanation (only for attacks)
+    incident = {
+        "classification": dominant_attack or "Normal",
+        "confidence": round(avg_attack_conf if dominant_attack else avg_detection_conf, 4),
+        "ai_explanation_available": False,
+        "summary": None,
+        "why_detected": None,
+        "evidence": None,
+        "risk_level": None,
+        "confidence_note": None,
+        "recommended_actions": None,
+        "analyst_note": None,
+    }
+
+    if attack_events and dominant_attack:
+        try:
+            gemini_result = await get_gemini_explanation(
+                prediction_data={
+                    "prediction": "Attack",
+                    "dominant_attack": dominant_attack,
+                    "detection_confidence": avg_detection_conf,
+                    "attack_confidence": avg_attack_conf,
+                    "risk_level": best_attack.get("risk_level", "MEDIUM"),
+                },
+                events=attack_events,
+                feature_evidence=feature_evidence,
+                batch_summary={
+                    "total_events": len(events),
+                    "normal_events": len(normal_events),
+                    "attack_events": len(attack_events),
+                },
+            )
+            incident.update({
+                "ai_explanation_available": gemini_result.get(
+                    "ai_explanation_available", False
+                ),
+                "summary": gemini_result.get("summary"),
+                "why_detected": gemini_result.get("why_detected"),
+                "evidence": gemini_result.get("evidence"),
+                "risk_level": gemini_result.get("risk_level"),
+                "confidence_note": gemini_result.get("confidence_note"),
+                "recommended_actions": gemini_result.get("recommended_actions"),
+                "analyst_note": gemini_result.get("analyst_note"),
+            })
+        except Exception as e:
+            logger.error("Gemini explanation failed: %s", str(e))
+            incident["summary"] = (
+                f"ML models detected {dominant_attack} attack. "
+                f"AI explanation could not be generated."
+            )
+
+    # If no attacks, set normal incident
+    if not attack_events:
+        incident.update({
+            "classification": "Normal",
+            "confidence": round(
+                sum(e["detection_confidence"] for e in normal_events)
+                / max(len(normal_events), 1),
+                4,
+            ),
+            "risk_level": "LOW",
+            "summary": "All analyzed traffic appears to be normal network activity.",
+        })
+
+    # Step 7: Build response
+    # Remove batch_features from event results (internal data)
+    clean_events = []
+    for e in events:
+        clean_event = {k: v for k, v in e.items() if k != "batch_features"}
+        clean_events.append(clean_event)
+
+    return {
+        "analysis_id": analysis_id,
+        "total_events": len(events),
+        "normal_events": len(normal_events),
+        "attack_events": len(attack_events),
+        "dominant_attack": dominant_attack,
+        "events": clean_events,
+        "incident": incident,
+        "parsing_warnings": parsed.get("warnings", []),
+    }
+
