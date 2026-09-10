@@ -1,0 +1,17 @@
+{
+    "dataset": "UNSW-NB15",
+    "binary_threshold": 0.3,
+    "binary_model": "Random Forest",
+    "attack_model": "XGBoost",
+    "attack_categories": [
+        "Analysis",
+        "Backdoor",
+        "DoS",
+        "Exploits",
+        "Fuzzers",
+        "Generic",
+        "Reconnaissance",
+        "Shellcode",
+        "Worms"
+    ]
+}
