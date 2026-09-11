@@ -21,17 +21,28 @@ class TrainingEngine:
             {
                 "id": "ds-unsw",
                 "name": "UNSW_NB15_telemetry_sample.csv",
-                "type": "CSV Network Telemetry Flow",
+                "type": "CSV Network Telemetry Flow (Primary)",
                 "size": "28.4 KB",
                 "records_count": 500,
                 "features_count": 10,
                 "target_labels": ["Normal", "Reconnaissance", "PortScan", "BruteForce", "DDoS_Flood"],
                 "status": "Ready for Training",
-                "description": "Standard cybersecurity benchmark dataset containing multi-stage intrusion telemetry flows."
+                "description": "Primary benchmark dataset containing multi-stage intrusion telemetry flows."
+            },
+            {
+                "id": "ds-secondary",
+                "name": "UNSW_NB15_telemetry_secondary.csv",
+                "type": "CSV Network Telemetry Flow (Spare)",
+                "size": "29.1 KB",
+                "records_count": 500,
+                "features_count": 10,
+                "target_labels": ["Normal", "Reconnaissance", "PortScan", "BruteForce", "DDoS_Flood"],
+                "status": "Ready for Training",
+                "description": "Secondary spare benchmark dataset with identical telemetry features for verification."
             },
             {
                 "id": "ds-cicids",
-                "name": "CIC_IDS2017_PCAP_telemetry.csv",
+                "name": "CIC_IDS2017_telemetry_secondary.csv",
                 "type": "CSV Flow Capture",
                 "size": "44.1 KB",
                 "records_count": 750,
@@ -74,11 +85,26 @@ class TrainingEngine:
         return datasets
 
     def get_dataset_preview(self, dataset_id: str) -> Dict[str, Any]:
-        csv_path = os.path.join(self.datasets_dir, "UNSW_NB15_telemetry_sample.csv")
+        target_map = {
+            "ds-unsw": "UNSW_NB15_telemetry_sample.csv",
+            "ds-secondary": "UNSW_NB15_telemetry_secondary.csv",
+            "ds-cicids": "CIC_IDS2017_telemetry_secondary.csv",
+        }
+        filename = target_map.get(dataset_id, "UNSW_NB15_telemetry_sample.csv")
+        csv_path = os.path.join(self.datasets_dir, filename)
+
+        if not os.path.exists(csv_path) and dataset_id.startswith("upload-"):
+            upload_name = dataset_id.replace("upload-", "")
+            csv_path = os.path.join(self.uploads_dir, upload_name)
+
         rows = []
+        columns = ["timestamp", "source_ip", "destination_ip", "protocol", "packet_count", "traffic_volume", "connection_attempts", "failed_login_attempts", "attack_type"]
+        
         if os.path.exists(csv_path):
             with open(csv_path, "r", encoding="utf-8") as f:
                 reader = csv.DictReader(f)
+                if reader.fieldnames:
+                    columns = list(reader.fieldnames)
                 for i, row in enumerate(reader):
                     if i < 15:
                         rows.append(row)
@@ -87,7 +113,8 @@ class TrainingEngine:
 
         return {
             "dataset_id": dataset_id,
-            "columns": ["timestamp", "source_ip", "destination_ip", "protocol", "packet_count", "traffic_volume", "connection_attempts", "failed_login_attempts", "attack_type"],
+            "filename": filename,
+            "columns": columns,
             "rows": rows,
             "total_preview_count": len(rows)
         }

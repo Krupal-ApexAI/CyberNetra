@@ -144,7 +144,9 @@ def map_event_to_features(
     service = PORT_SERVICE_MAP.get(dst_port, "-")
 
     # Determine connection state
-    state = DEFAULT_STATE
+    raw_state = str(event.get("connection_state") or event.get("state") or DEFAULT_STATE).upper()
+    state_map = {"S0": "INT", "ESTABLISHED": "CON", "FIN": "FIN", "CLOSED": "CLO", "RESET": "REQ", "CON": "CON", "INT": "INT", "REQ": "REQ"}
+    state = state_map.get(raw_state, "CON")
 
     # Bytes: use parsed values or estimate from batch context
     sbytes = event.get("bytes_sent") or batch_context.get("est_sbytes", 48)
@@ -157,8 +159,11 @@ def map_event_to_features(
     spkts = event.get("packets") or max(1, sbytes // 1460 + 1) if sbytes else 1
     dpkts = max(1, dbytes // 1460 + 1) if dbytes > 0 else 0
 
-    # Rate: connections per second estimated from batch
-    rate = batch_context.get("rate", batch_size)
+    # Rate: connections per second estimated from batch or explicit event rate
+    if event.get("rate") is not None:
+        rate = float(event["rate"])
+    else:
+        rate = batch_context.get("rate", batch_size)
 
     # TTL defaults (common OS values)
     sttl = 62   # Linux default minus a few hops
@@ -201,18 +206,20 @@ def map_event_to_features(
     trans_depth = 1 if service in ("http", "ssl") else 0
     response_body_len = dbytes if service in ("http", "ssl") else 0
 
-    # Connection tracking features (derived from batch context)
+    # Connection tracking features (derived from batch context or explicit repetitions)
     src_ip = event.get("src_ip", "0.0.0.0")
     dst_ip = event.get("dst_ip", "0.0.0.0")
 
-    ct_srv_src = batch_context.get("ct_srv_src", {}).get((service, src_ip), 1)
-    ct_state_ttl = batch_context.get("ct_state_ttl", 1)
-    ct_dst_ltm = batch_context.get("ct_dst_ltm", {}).get(dst_ip, 1)
-    ct_src_dport_ltm = batch_context.get("ct_src_dport_ltm", {}).get((src_ip, dst_port), 1)
-    ct_dst_sport_ltm = batch_context.get("ct_dst_sport_ltm", {}).get((dst_ip, src_port), 1)
-    ct_dst_src_ltm = batch_context.get("ct_dst_src_ltm", {}).get((dst_ip, src_ip), 1)
-    ct_src_ltm = batch_context.get("ct_src_ltm", {}).get(src_ip, 1)
-    ct_srv_dst = batch_context.get("ct_srv_dst", {}).get((service, dst_ip), 1)
+    rep_conn = max(int(event.get("repeated_connections", 0) or 0), int(event.get("failed_attempts", 0) or 0))
+
+    ct_srv_src = max(rep_conn, batch_context.get("ct_srv_src", {}).get((service, src_ip), 1))
+    ct_state_ttl = min(100, max(rep_conn, batch_context.get("ct_state_ttl", 1)))
+    ct_dst_ltm = max(rep_conn, batch_context.get("ct_dst_ltm", {}).get(dst_ip, 1))
+    ct_src_dport_ltm = max(rep_conn, batch_context.get("ct_src_dport_ltm", {}).get((src_ip, dst_port), 1))
+    ct_dst_sport_ltm = max(rep_conn, batch_context.get("ct_dst_sport_ltm", {}).get((dst_ip, src_port), 1))
+    ct_dst_src_ltm = max(rep_conn, batch_context.get("ct_dst_src_ltm", {}).get((dst_ip, src_ip), 1))
+    ct_src_ltm = max(rep_conn, batch_context.get("ct_src_ltm", {}).get(src_ip, 1))
+    ct_srv_dst = max(rep_conn, batch_context.get("ct_srv_dst", {}).get((service, dst_ip), 1))
 
     # FTP features
     is_ftp_login = 1 if service == "ftp" else 0

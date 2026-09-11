@@ -51,12 +51,18 @@ class ModelLoader:
         self._load_unsw_models()
         self._detect_and_load_saved_model()
 
-    # ──────────────────────────────────────────────
-    # UNSW-NB15 artifact loading
-    # ──────────────────────────────────────────────
-
     def _load_unsw_models(self):
         """Load all UNSW-NB15 .pkl artifacts and model_config.json."""
+        # Compatibility patch for scikit-learn version differences during unpickling
+        try:
+            import sklearn.compose._column_transformer as ct
+            if not hasattr(ct, "_RemainderColsList"):
+                class _RemainderColsList(list):
+                    pass
+                ct._RemainderColsList = _RemainderColsList
+        except Exception:
+            pass
+
         try:
             import joblib
         except ImportError:

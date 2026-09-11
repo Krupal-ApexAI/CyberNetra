@@ -214,18 +214,93 @@ def _extract_extra_fields(extra: str, event: Dict[str, Any]):
         event["duration"] = float(dm.group(1))
 
 
+def _parse_kv_blocks(cleaned_text: str) -> List[Dict[str, Any]]:
+    """Parse block/key-value formatted network logs into structured events."""
+    raw_blocks = re.split(r'(?:\r?\n\s*\r?\n)|(?:(?=\b(?:DOS|Brute Force|Normal|Suspicious|\d+\.\s+Normal|\d+\.\s+DOS|\d+\.\s+Brute)\b))', cleaned_text.strip(), flags=re.IGNORECASE)
+    events = []
+    
+    for idx, block in enumerate(raw_blocks):
+        if not block.strip():
+            continue
+        lines = [l.strip() for l in block.splitlines() if l.strip()]
+        kv = {}
+        for line in lines:
+            if ":" in line:
+                k, v = line.split(":", 1)
+                kv[k.strip().lower()] = v.strip()
+        
+        # Check if block has network telemetry indicators
+        src_ip = kv.get("source ip") or kv.get("src ip") or kv.get("src_ip")
+        dst_ip = kv.get("destination ip") or kv.get("dst ip") or kv.get("dst_ip")
+        if src_ip or dst_ip or "protocol" in kv or "source port" in kv:
+            src_port = int(re.sub(r"[^\d]", "", kv.get("source port", kv.get("src_port", "0"))) or "0")
+            dst_port = int(re.sub(r"[^\d]", "", kv.get("destination port", kv.get("dst_port", "0"))) or "0")
+            
+            dur_str = kv.get("duration", "0.001")
+            try:
+                duration = float(re.findall(r"[\d.]+", dur_str)[0])
+            except Exception:
+                duration = 0.001
+
+            pkts_str = kv.get("packets", kv.get("packet count", "1"))
+            try:
+                packets = int(re.findall(r"\d+", pkts_str)[0])
+            except Exception:
+                packets = 1
+
+            bytes_str = kv.get("bytes", kv.get("bytes sent", kv.get("traffic volume", "100")))
+            try:
+                bytes_sent = int(re.findall(r"\d+", bytes_str)[0])
+            except Exception:
+                bytes_sent = 100
+
+            rate_str = kv.get("connection rate", kv.get("rate", ""))
+            try:
+                rate_val = float(re.findall(r"[\d.]+", rate_str)[0]) if re.findall(r"[\d.]+", rate_str) else None
+            except Exception:
+                rate_val = None
+
+            rep_str = kv.get("repeated connections", kv.get("connection attempts", "0"))
+            try:
+                rep_val = int(re.findall(r"\d+", rep_str)[0]) if re.findall(r"\d+", rep_str) else 0
+            except Exception:
+                rep_val = 0
+
+            fail_str = kv.get("failed attempts", kv.get("failed login attempts", "0"))
+            try:
+                fail_val = int(re.findall(r"\d+", fail_str)[0]) if re.findall(r"\d+", fail_str) else 0
+            except Exception:
+                fail_val = 0
+
+            state_raw = kv.get("connection state", kv.get("state", "CON")).upper()
+
+            event = {
+                "line_index": idx,
+                "raw_log": block.strip(),
+                "timestamp": kv.get("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                "src_ip": src_ip or "192.168.1.100",
+                "src_port": src_port or 49152,
+                "dst_ip": dst_ip or "10.0.0.1",
+                "dst_port": dst_port or 80,
+                "protocol": (kv.get("protocol") or "TCP").upper(),
+                "duration": duration,
+                "bytes_sent": bytes_sent,
+                "bytes_received": 0,
+                "packets": packets,
+                "connection_state": state_raw,
+                "rate": rate_val,
+                "repeated_connections": rep_val,
+                "failed_attempts": fail_val,
+                "parsing_warnings": []
+            }
+            events.append(event)
+    return events
+
+
 def parse_logs(raw_text: str) -> Dict[str, Any]:
     """
     Parse multiline log input into structured events.
-
-    Returns:
-        {
-            "events": [parsed event dicts],
-            "total_lines": int,
-            "parsed_count": int,
-            "skipped_count": int,
-            "warnings": [global warnings]
-        }
+    Supports both single-line streams and multi-line key-value blocks.
     """
     cleaned_text, global_warnings = validate_input(raw_text)
     lines = cleaned_text.splitlines()
@@ -233,6 +308,7 @@ def parse_logs(raw_text: str) -> Dict[str, Any]:
     events = []
     skipped = 0
 
+    # First try line-by-line parsing
     for idx, line in enumerate(lines):
         event = parse_single_line(line, idx)
         if event is not None:
@@ -240,6 +316,13 @@ def parse_logs(raw_text: str) -> Dict[str, Any]:
         else:
             if line.strip() and not line.strip().startswith(("#", "//", "--", "=")):
                 skipped += 1
+
+    # If line-by-line parsing found nothing, try key-value block parsing
+    if not events:
+        block_events = _parse_kv_blocks(cleaned_text)
+        if block_events:
+            events = block_events
+            skipped = 0
 
     if not events:
         global_warnings.append(
