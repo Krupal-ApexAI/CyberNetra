@@ -1,5 +1,4 @@
-import React from 'react';
-import { ArrowRight, BrainCircuit, Target, AlertOctagon, Layers } from 'lucide-react';
+import { BrainCircuit, Target, AlertOctagon, Layers } from 'lucide-react';
 
 export default function AttackForecast({ forecast, scenario = 'normal' }) {
   const {

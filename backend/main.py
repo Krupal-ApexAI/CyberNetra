@@ -456,3 +456,108 @@ async def analyze_logs(request: LogAnalysisRequest):
         "parsing_warnings": parsed.get("warnings", []),
     }
 
+
+# ──────────────────────────────────────────────
+# New SOC Feature Endpoints
+# ──────────────────────────────────────────────
+
+@app.get("/api/system-health")
+def get_system_health():
+    """Returns real-time service health, latency, and status metrics."""
+    return {
+        "status": "nominal",
+        "cluster": "NTRO-SOC-CLUSTER-1",
+        "services": [
+            {"name": "Predictive Inference Engine", "status": "Active", "latency": "12ms", "health": "100%", "type": "ML Model"},
+            {"name": "API Gateway & Ingress Router", "status": "Active", "latency": "3ms", "health": "99.9%", "type": "FastAPI"},
+            {"name": "PCAP / NetFlow Log Pipeline", "status": "Active", "latency": "18ms", "health": "100%", "type": "Kafka Stream"},
+            {"name": "MITRE Threat Knowledgebase", "status": "Active", "latency": "5ms", "health": "100%", "type": "STIX/TAXII"}
+        ]
+    }
+
+@app.get("/api/network-graph")
+def get_network_graph():
+    """Returns topology nodes and links adapted to current scenario."""
+    nodes = [
+        {"id": "gw-1", "name": "Edge Gateway Router", "ip": "192.168.1.1", "type": "gateway", "status": "normal", "val": 18, "color": "#06b6d4"},
+        {"id": "srv-web1", "name": "Web Server Primary", "ip": "192.168.1.10", "type": "server", "status": "target" if CURRENT_SCENARIO == "ddos" else "normal", "val": 15, "color": "#f43f5e" if CURRENT_SCENARIO == "ddos" else "#10b981"},
+        {"id": "srv-web2", "name": "Web Server Replica", "ip": "192.168.1.11", "type": "server", "status": "target" if CURRENT_SCENARIO == "ddos" else "normal", "val": 13, "color": "#f59e0b" if CURRENT_SCENARIO == "ddos" else "#10b981"},
+        {"id": "srv-db", "name": "Core SQL Database", "ip": "192.168.1.50", "type": "database", "status": "target" if CURRENT_SCENARIO == "progression" else "normal", "val": 16, "color": "#f43f5e" if CURRENT_SCENARIO == "progression" else "#38bdf8"},
+        {"id": "srv-ad", "name": "Active Directory DC", "ip": "10.0.4.12", "type": "server", "status": "target" if CURRENT_SCENARIO == "progression" else "normal", "val": 16, "color": "#f43f5e" if CURRENT_SCENARIO == "progression" else "#38bdf8"},
+        {"id": "host-1", "name": "Analyst Workstation A", "ip": "192.168.1.105", "type": "workstation", "status": "normal", "val": 9, "color": "#10b981"},
+        {"id": "host-2", "name": "Finance Workstation B", "ip": "192.168.1.45", "type": "workstation", "status": "compromised" if CURRENT_SCENARIO == "progression" else "normal", "val": 12, "color": "#f43f5e" if CURRENT_SCENARIO == "progression" else "#10b981"},
+        {"id": "host-3", "name": "Eng Workstation C", "ip": "192.168.1.150", "type": "workstation", "status": "normal", "val": 9, "color": "#10b981"},
+        {"id": "ext-c2", "name": "External C2 Server", "ip": "193.142.146.88", "type": "external", "status": "attacker" if CURRENT_SCENARIO in ["progression", "ransomware"] else "normal", "val": 14, "color": "#e11d48"},
+        {"id": "ext-bot1", "name": "Botnet Node Cluster #1", "ip": "198.51.100.44", "type": "attacker", "status": "attacker" if CURRENT_SCENARIO == "ddos" else "normal", "val": 12, "color": "#f43f5e"},
+        {"id": "ext-bot2", "name": "Botnet Node Cluster #2", "ip": "203.0.113.88", "type": "attacker", "status": "attacker" if CURRENT_SCENARIO == "ddos" else "normal", "val": 12, "color": "#f43f5e"},
+        {"id": "ext-scan", "name": "Nmap Scanner External", "ip": "185.190.140.2", "type": "attacker", "status": "attacker" if CURRENT_SCENARIO == "suspicious" else "normal", "val": 11, "color": "#f59e0b"}
+    ]
+
+    links = [
+        {"source": "gw-1", "target": "srv-web1", "color": "#f43f5e" if CURRENT_SCENARIO == "ddos" else "#334155", "width": 3 if CURRENT_SCENARIO == "ddos" else 1},
+        {"source": "gw-1", "target": "srv-web2", "color": "#f43f5e" if CURRENT_SCENARIO == "ddos" else "#334155", "width": 2 if CURRENT_SCENARIO == "ddos" else 1},
+        {"source": "gw-1", "target": "host-1", "color": "#1e293b", "width": 1},
+        {"source": "gw-1", "target": "host-2", "color": "#f43f5e" if CURRENT_SCENARIO == "progression" else "#1e293b", "width": 2.5 if CURRENT_SCENARIO == "progression" else 1},
+        {"source": "gw-1", "target": "host-3", "color": "#1e293b", "width": 1},
+        {"source": "srv-web1", "target": "srv-db", "color": "#334155", "width": 1.5},
+        {"source": "host-2", "target": "srv-ad", "color": "#f43f5e" if CURRENT_SCENARIO == "progression" else "#1e293b", "width": 3 if CURRENT_SCENARIO == "progression" else 1},
+        {"source": "host-2", "target": "srv-db", "color": "#f59e0b" if CURRENT_SCENARIO == "progression" else "#1e293b", "width": 2 if CURRENT_SCENARIO == "progression" else 1},
+        {"source": "ext-c2", "target": "host-2", "color": "#f43f5e" if CURRENT_SCENARIO == "progression" else "#1e293b", "width": 2 if CURRENT_SCENARIO == "progression" else 0},
+        {"source": "ext-bot1", "target": "gw-1", "color": "#f43f5e" if CURRENT_SCENARIO == "ddos" else "#1e293b", "width": 3 if CURRENT_SCENARIO == "ddos" else 0},
+        {"source": "ext-bot2", "target": "gw-1", "color": "#f43f5e" if CURRENT_SCENARIO == "ddos" else "#1e293b", "width": 3 if CURRENT_SCENARIO == "ddos" else 0},
+        {"source": "ext-scan", "target": "gw-1", "color": "#f59e0b" if CURRENT_SCENARIO == "suspicious" else "#1e293b", "width": 2.5 if CURRENT_SCENARIO == "suspicious" else 0}
+    ]
+
+    return {"scenario": CURRENT_SCENARIO, "nodes": nodes, "links": links}
+
+@app.get("/api/search")
+def search_network_entities(q: str = ""):
+    """Universal search across IP nodes, threat classifications, MITRE TTPs, and reports."""
+    query = q.strip().lower()
+    if not query:
+        return {"query": "", "count": 0, "results": []}
+
+    entities = [
+        # IP Nodes
+        {"category": "IP Nodes & Hosts", "title": "192.168.1.10", "subtitle": "Source (Attacker) • DDoS SYN Flooder • Ingress Hub", "type": "ip", "tab": "graph", "meta": {"ip": "192.168.1.10"}},
+        {"category": "IP Nodes & Hosts", "title": "8.8.8.8", "subtitle": "Destination (Victim Server) • Ports 80, 443, 53 Under Siege", "type": "ip", "tab": "graph", "meta": {"ip": "8.8.8.8"}},
+        {"category": "IP Nodes & Hosts", "title": "192.168.1.45", "subtitle": "Compromised Botnet Worker • Port Scan Origin", "type": "ip", "tab": "graph", "meta": {"ip": "192.168.1.45"}},
+        {"category": "IP Nodes & Hosts", "title": "10.0.0.88", "subtitle": "Internal Host • Subnet VLAN 1 Reconnaissance Scanner", "type": "ip", "tab": "threats", "meta": {"ip": "10.0.0.88"}},
+        {"category": "IP Nodes & Hosts", "title": "185.220.101.5", "subtitle": "External Tor Exit Node • SSH Brute Force Ingress", "type": "ip", "tab": "threats", "meta": {"ip": "185.220.101.5"}},
+        {"category": "IP Nodes & Hosts", "title": "172.16.0.3", "subtitle": "Internal Gateway Router • DMZ Segment", "type": "ip", "tab": "live", "meta": {"ip": "172.16.0.3"}},
+        
+        # Threats & Incidents
+        {"category": "Threat Detections", "title": "DDoS Attack (Critical)", "subtitle": "Volumetric SYN flood saturating gateway at 21,000 pkts/s", "type": "threat", "tab": "threats", "meta": {"attack": "DDoS"}},
+        {"category": "Threat Detections", "title": "Exploits & Shellcode Ingress", "subtitle": "Flagged by Random Forest + XGBoost with 98% confidence", "type": "threat", "tab": "threats", "meta": {"attack": "Exploits"}},
+        {"category": "Threat Detections", "title": "SSH Credential Brute Force", "subtitle": "54 failed authentications observed on port 22", "type": "threat", "tab": "threats", "meta": {"attack": "BruteForce"}},
+        {"category": "Threat Detections", "title": "Nmap Port Reconnaissance", "subtitle": "SYN probes sweeping ports 80, 443, 22, 3389, 8080", "type": "threat", "tab": "threats", "meta": {"attack": "PortScan"}},
+        
+        # MITRE ATT&CK TTPs
+        {"category": "MITRE ATT&CK", "title": "T1498: Network Denial of Service", "subtitle": "Tactic: Impact (TA0040) • Upstream rate-limiting mitigation", "type": "mitre", "tab": "mitre", "meta": {"tactic": "TA0040", "technique": "T1498"}},
+        {"category": "MITRE ATT&CK", "title": "T1110: Brute Force", "subtitle": "Tactic: Credential Access (TA0006) • Password Guessing & Spraying", "type": "mitre", "tab": "mitre", "meta": {"tactic": "TA0006", "technique": "T1110"}},
+        {"category": "MITRE ATT&CK", "title": "T1046: Network Service Discovery", "subtitle": "Tactic: Discovery (TA0007) • Port scan and host sweeps", "type": "mitre", "tab": "mitre", "meta": {"tactic": "TA0007", "technique": "T1046"}},
+        {"category": "MITRE ATT&CK", "title": "T1566: Phishing", "subtitle": "Tactic: Initial Access (TA0001) • Spearphishing Attachment", "type": "mitre", "tab": "mitre", "meta": {"tactic": "TA0001", "technique": "T1566"}},
+        {"category": "MITRE ATT&CK", "title": "T1059: Command and Scripting Interpreter", "subtitle": "Tactic: Execution (TA0002) • PowerShell / Unix Shell execution", "type": "mitre", "tab": "mitre", "meta": {"tactic": "TA0002", "technique": "T1059"}},
+
+        # Forensic Reports
+        {"category": "SOC Reports", "title": "REP-2026-0914-01: Executive Incident Briefing", "subtitle": "Real-Time Incident Forensic Assessment & Threat Audit (1,420 Anomalies)", "type": "report", "tab": "reports", "meta": {"id": "REP-2026-0914-01"}},
+        {"category": "SOC Reports", "title": "REP-2026-0914-02: AI Validation Audit", "subtitle": "NTRO SIH26153 Model Precision (98.6%) & Latency Compliance Report", "type": "report", "tab": "reports", "meta": {"id": "REP-2026-0914-02"}},
+
+        # Datasets
+        {"category": "Datasets & Models", "title": "UNSW_NB15_telemetry_sample.csv", "subtitle": "Primary benchmark dataset containing multi-stage intrusion telemetry flows", "type": "model", "tab": "models", "meta": {"dataset": "ds-unsw"}},
+        {"category": "Datasets & Models", "title": "LSTM Sequence Forecaster", "subtitle": "Temporal state model forecasting multi-stage attack transitions", "type": "model", "tab": "models", "meta": {"arch": "LSTM"}}
+    ]
+
+    matched = []
+    for item in entities:
+        if (query in item["title"].lower() or 
+            query in item["subtitle"].lower() or 
+            query in item["category"].lower() or
+            query in item.get("meta", {}).get("ip", "").lower() or
+            query in item.get("meta", {}).get("technique", "").lower()):
+            matched.append(item)
+
+    return {"query": q, "count": len(matched), "results": matched[:10]}
+
+
+

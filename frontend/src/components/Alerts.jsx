@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { Bell, AlertOctagon, AlertTriangle, Info, ShieldAlert, Filter } from 'lucide-react';
+import { Bell, AlertOctagon, AlertTriangle, Info, ShieldAlert } from 'lucide-react';
 
 export default function Alerts({ alerts = [] }) {
   const [filter, setFilter] = useState('ALL');

@@ -2,130 +2,85 @@ import React from 'react';
 import {
   LayoutDashboard,
   Activity,
-  BrainCircuit,
-  FileSearch,
+  ScrollText,
   ShieldAlert,
-  Cpu,
-  Database,
-  ChevronLeft,
-  ChevronRight,
-  Shield,
+  Clock,
+  Share2,
+  BrainCircuit,
   Layers,
-  Radio,
-  ExternalLink,
-  ScrollText
+  Cpu,
+  FileText,
+  Shield,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 export default function Sidebar({
   activeTab,
   onSelectTab,
   isCollapsed,
-  onToggleCollapse,
-  scenario,
-  alertCount = 0
+  onToggleCollapse
 }) {
   const navItems = [
-    {
-      id: 'all',
-      label: 'Operations Center',
-      icon: LayoutDashboard,
-      badge: 'Unified'
-    },
-    {
-      id: 'forecast',
-      label: 'Attack Stage Forecaster',
-      icon: BrainCircuit,
-      badge: 'MITRE AI'
-    },
-    {
-      id: 'explainability',
-      label: 'Explainable AI (XAI)',
-      icon: FileSearch,
-      badge: 'Dual Trail'
-    },
-    {
-      id: 'traffic',
-      label: 'Traffic & Flow Telemetry',
-      icon: Activity,
-      badge: 'Live Stream'
-    },
-    {
-      id: 'alerts',
-      label: 'SOC Incident Queue',
-      icon: ShieldAlert,
-      badge: alertCount > 0 ? `${alertCount}` : null,
-      badgeColor: 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-    },
-    {
-      id: 'loganalysis',
-      label: 'Log Analysis',
-      icon: ScrollText,
-      badge: 'ML + AI'
-    },
-    {
-      id: 'models',
-      label: 'Data & Model Training',
-      icon: Database,
-      badge: 'ML Engine'
-    }
+    { id: 'all', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'live', label: 'Live Monitoring', icon: Activity },
+    { id: 'loganalysis', label: 'Log Analysis', icon: ScrollText },
+    { id: 'threats', label: 'Threats', icon: ShieldAlert },
+    { id: 'timeline', label: 'Attack Timeline', icon: Clock },
+    { id: 'graph', label: 'Network Graph', icon: Share2 },
+    { id: 'explainability', label: 'AI Explanations', icon: BrainCircuit },
+    { id: 'mitre', label: 'MITRE ATT&CK', icon: Layers },
+    { id: 'models', label: 'Model Performance', icon: Cpu },
+    { id: 'reports', label: 'Reports', icon: FileText }
   ];
 
   return (
     <aside
-      className={`relative flex flex-col bg-[#0b0f19] border-r border-slate-800/80 transition-all duration-300 ease-in-out z-30 select-none flex-shrink-0 ${
-        isCollapsed ? 'w-[74px]' : 'w-[272px]'
+      className={`relative flex flex-col bg-[#0b1322] text-slate-300 border-r border-[#182338] transition-all duration-300 ease-in-out z-30 select-none shrink-0 ${
+        isCollapsed ? 'w-[72px]' : 'w-[240px]'
       }`}
     >
-      {/* Precision Floating Rail Toggle Button - Always at fixed, reliable coordinates on the boundary line */}
+      {/* Collapse Toggle Button - Translucent Glassmorphic Boundary Pill */}
       <button
         type="button"
         onClick={onToggleCollapse}
-        className="absolute -right-3.5 top-5 z-50 w-7 h-7 rounded-full bg-[#0b0f19] border border-slate-700 hover:border-cyan-400 text-slate-300 hover:text-cyan-400 shadow-md shadow-black/60 flex items-center justify-center cursor-pointer transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+        className="absolute -right-3.5 top-20 z-50 w-7 h-7 rounded-full bg-slate-900/80 backdrop-blur-md border border-slate-500/60 hover:border-blue-400 text-slate-200 hover:text-white hover:bg-blue-600/90 shadow-md shadow-black/40 flex items-center justify-center cursor-pointer transition-all duration-200 hover:scale-110 active:scale-95 group"
         title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-        aria-label={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+        aria-label="Toggle Sidebar"
       >
         {isCollapsed ? (
-          <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+          <ChevronRight className="w-3.5 h-3.5 text-blue-400 group-hover:text-white transition-transform group-hover:translate-x-0.5" />
         ) : (
-          <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
+          <ChevronLeft className="w-3.5 h-3.5 text-slate-300 group-hover:text-white transition-transform group-hover:-translate-x-0.5" />
         )}
       </button>
 
-      {/* Brand Header */}
-      <div className="h-16 flex items-center px-4 border-b border-slate-800/80 bg-[#090d16] overflow-hidden">
+      {/* Brand Header Matching Mockup 2 - Clickable to return to Home Landing Page */}
+      <div
+        onClick={() => onSelectTab('home')}
+        className="h-16 flex items-center px-4 border-b border-[#182338] shrink-0 cursor-pointer hover:bg-[#101b2e] transition-colors group"
+        title="Return to Home / Landing Page"
+      >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-indigo-600 p-0.5 shadow-lg shadow-cyan-500/20 flex-shrink-0">
-            <div className="w-full h-full bg-[#0b0f19] rounded-[10px] flex items-center justify-center">
-              <Shield className="w-5 h-5 text-cyan-400" />
-            </div>
+          <div className="w-8 h-8 rounded-lg bg-blue-600 group-hover:bg-blue-500 flex items-center justify-center shrink-0 shadow-sm shadow-blue-500/40 transition-colors">
+            <Shield className="w-4 h-4 text-white" />
           </div>
 
           {!isCollapsed && (
-            <div className="min-w-0 pr-2">
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold tracking-wider text-base text-slate-100 font-sans whitespace-nowrap">
-                  CYBER <span className="text-cyan-400">NETRA</span>
-                </span>
-                <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 whitespace-nowrap">
-                  SIH26153
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 truncate tracking-tight whitespace-nowrap">
-                NTRO Cyber Defense
+            <div className="min-w-0">
+              <h1 className="font-bold text-sm text-white tracking-tight leading-tight group-hover:text-blue-200 transition-colors">
+                CyberNetra
+              </h1>
+              <p className="text-[10px] text-slate-400 truncate leading-tight mt-0.5">
+                Network Threat Intelligence
               </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Navigation Links */}
-      <div className="flex-1 py-4 px-3 space-y-1.5 overflow-y-auto custom-scrollbar">
-        {!isCollapsed && (
-          <div className="px-3 pb-2 text-[10px] font-mono uppercase tracking-widest text-slate-400">
-            Security Intelligence
-          </div>
-        )}
-
+      {/* Navigation Menu List */}
+      <div className="flex-1 py-4 px-2.5 space-y-1 overflow-y-auto custom-scrollbar">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -134,79 +89,33 @@ export default function Sidebar({
             <button
               key={item.id}
               onClick={() => onSelectTab(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group relative ${
+              className={`flex items-center gap-3 w-full px-3 py-2 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${
                 isActive
-                  ? 'bg-gradient-to-r from-cyan-950/60 to-slate-900/80 text-cyan-300 border border-cyan-500/40 shadow-sm shadow-cyan-950/40'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 border border-transparent'
+                  ? 'bg-blue-600 text-white font-semibold shadow-xs'
+                  : 'text-slate-400 hover:text-slate-100 hover:bg-white/5'
               }`}
               title={isCollapsed ? item.label : undefined}
             >
-              <Icon
-                className={`w-4 h-4 flex-shrink-0 transition-colors ${
-                  isActive
-                    ? 'text-cyan-400'
-                    : 'text-slate-400 group-hover:text-slate-200'
-                }`}
-              />
-
+              <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
               {!isCollapsed && (
-                <>
-                  <span className="truncate text-left flex-1 font-sans">
-                    {item.label}
-                  </span>
-
-                  {item.badge && (
-                    <span
-                      className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
-                        item.badgeColor ||
-                        (isActive
-                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                          : 'bg-slate-800/80 text-slate-400')
-                      }`}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
-                </>
-              )}
-
-              {/* Active Indicator Bar */}
-              {isActive && (
-                <div className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.6)]" />
+                <span className="truncate">{item.label}</span>
               )}
             </button>
           );
         })}
       </div>
 
-      {/* Bottom Status Card */}
-      <div className="p-3 border-t border-slate-800/80 bg-[#090d16]/80">
-        {!isCollapsed ? (
-          <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
-                <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                <span>Engine State</span>
-              </div>
-              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
-                ACTIVE
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-slate-400">
-              <span>Latency</span>
-              <span className="font-mono text-slate-300">~14ms</span>
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-slate-400">
-              <span>Telemetry Ingress</span>
-              <span className="font-mono text-cyan-400">Kafka / PCAP</span>
-            </div>
-          </div>
-        ) : (
-          <div className="flex justify-center py-1" title="Engine Active (~14ms)">
-            <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-          </div>
-        )}
-      </div>
+      {/* Bottom Slogan Footer Matching Mockup 2 */}
+      {!isCollapsed && (
+        <div className="p-4 border-t border-[#182338] shrink-0">
+          <p className="text-[11px] font-semibold text-slate-300 leading-snug">
+            Safer Networks<br />Stronger Tomorrow
+          </p>
+          <p className="text-[9px] text-slate-500 leading-snug mt-1">
+            A Smart India Hackathon 2026 Initiative
+          </p>
+        </div>
+      )}
     </aside>
   );
 }

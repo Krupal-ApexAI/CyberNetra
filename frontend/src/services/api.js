@@ -469,3 +469,49 @@ export async function analyzeLogsAPI(logs) {
   return await res.json();
 }
 
+/**
+ * Universal Search API
+ * GET /api/search?q=...
+ */
+export async function searchAPI(query) {
+  if (!query || !query.trim()) return { query: "", count: 0, results: [] };
+  try {
+    const res = await fetch(`${API_BASE}/api/search?q=${encodeURIComponent(query.trim())}`);
+    if (!res.ok) throw new Error("Search request failed");
+    return await res.json();
+  } catch (err) {
+    console.warn("Using offline search fallback:", err);
+    // Client-side fallback search
+    const fallbackResults = [
+      { category: "IP Nodes & Hosts", title: "192.168.1.10", subtitle: "Source (Attacker) • DDoS SYN Flooder • Ingress Hub", type: "ip", tab: "graph", meta: { ip: "192.168.1.10" } },
+      { category: "IP Nodes & Hosts", title: "8.8.8.8", subtitle: "Destination (Victim Server) • Ports 80, 443, 53 Under Siege", type: "ip", tab: "graph", meta: { ip: "8.8.8.8" } },
+      { category: "IP Nodes & Hosts", title: "192.168.1.45", subtitle: "Compromised Botnet Worker • Port Scan Origin", type: "ip", tab: "graph", meta: { ip: "192.168.1.45" } },
+      { category: "Threat Detections", title: "DDoS Attack (Critical)", subtitle: "Volumetric SYN flood saturating gateway at 21,000 pkts/s", type: "threat", tab: "threats", meta: { attack: "DDoS" } },
+      { category: "Threat Detections", title: "Exploits & Shellcode Ingress", subtitle: "Flagged by Random Forest + XGBoost with 98% confidence", type: "threat", tab: "threats", meta: { attack: "Exploits" } },
+      { category: "MITRE ATT&CK", title: "T1498: Network Denial of Service", subtitle: "Tactic: Impact (TA0040) • Upstream rate-limiting mitigation", type: "mitre", tab: "mitre", meta: { technique: "T1498" } },
+      { category: "SOC Reports", title: "REP-2026-0914-01: Executive Incident Briefing", subtitle: "Real-Time Incident Forensic Assessment & Threat Audit", type: "report", tab: "reports", meta: { id: "REP-2026-0914-01" } }
+    ].filter(i => 
+      i.title.toLowerCase().includes(query.toLowerCase()) || 
+      i.subtitle.toLowerCase().includes(query.toLowerCase()) ||
+      i.category.toLowerCase().includes(query.toLowerCase())
+    );
+    return { query, count: fallbackResults.length, results: fallbackResults };
+  }
+}
+
+/**
+ * Fetch dynamic topology nodes and links from backend
+ * GET /api/network-graph
+ */
+export async function fetchNetworkGraph() {
+  try {
+    const res = await fetch(`${API_BASE}/api/network-graph`);
+    if (!res.ok) throw new Error("Failed to fetch network graph topology");
+    return await res.json();
+  } catch (err) {
+    console.warn("Using local network graph topology fallback:", err);
+    return null;
+  }
+}
+
+

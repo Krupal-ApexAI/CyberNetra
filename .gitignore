@@ -29,6 +29,12 @@ ENV/
 *.swp
 *.swo
 
+# Testing & Coverage
+.pytest_cache/
+backend/.pytest_cache/
+.coverage
+htmlcov/
+
 # OS Generated
 Thumbs.db
 ehthumbs.db
@@ -36,3 +42,4 @@ Desktop.ini
 $RECYCLE.BIN/
 .DS_Store
 *.log
+

@@ -1,15 +1,10 @@
-import React from 'react';
 import {
   Menu,
   RotateCw,
-  Server,
   Activity,
-  ShieldAlert,
-  Sliders,
   CheckCircle2,
   AlertTriangle,
   Flame,
-  Search,
   SlidersHorizontal
 } from 'lucide-react';
 

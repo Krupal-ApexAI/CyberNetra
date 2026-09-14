@@ -1,251 +1,226 @@
 import React, { useState } from 'react';
-import {
-  FileText,
-  Clock,
-  ShieldAlert,
-  ArrowRight,
-  ShieldCheck,
-  CheckCircle,
-  AlertTriangle,
-  Server,
-  Terminal,
-  Copy,
-  Check
-} from 'lucide-react';
+import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 
-export default function ExplainabilityPanel({ data }) {
-  const {
-    current_threat = "Normal Traffic Baseline",
-    what_happened_summary = "Observed telemetry parameters reflect standard operations.",
-    evidence_trail = [],
-    whats_next_prediction = "Steady-State Continuance",
-    whats_next_details = "Predictive model projects network traffic will remain within safe baseline.",
-    attack_trajectory = [],
-    target_assets = [],
-    estimated_time_to_impact = "None",
-    mitigation_playbook = []
-  } = data || {};
-
-  const [copiedIdx, setCopiedIdx] = useState(null);
-
-  const handleCopyPlaybook = (text, idx) => {
-    navigator.clipboard.writeText(text);
-    setCopiedIdx(idx);
-    setTimeout(() => setCopiedIdx(null), 1800);
-  };
-
-  const getSeverityBadge = (sev) => {
-    switch (sev) {
-      case 'CRITICAL':
-        return 'bg-rose-950 text-rose-400 border-rose-500/50';
-      case 'HIGH':
-        return 'bg-orange-950 text-orange-400 border-orange-500/50';
-      case 'MEDIUM':
-        return 'bg-amber-950 text-amber-400 border-amber-500/50';
-      default:
-        return 'bg-emerald-950 text-emerald-400 border-emerald-500/50';
-    }
-  };
+export default function ExplainabilityPanel({ onBackToThreat }) {
+  const [actionApplied, setActionApplied] = useState(false);
 
   return (
-    <div className="w-full glass-panel rounded-2xl p-5 border border-slate-800/80">
-      {/* Panel Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3.5 mb-4 border-b border-slate-800/60 gap-2">
-        <div className="flex items-center gap-2.5">
-          <div className="p-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30">
-            <Terminal className="w-4 h-4 text-cyan-400" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold tracking-wide text-slate-200">
-              Explainable AI (XAI) & Incident Attribution Engine
-            </h3>
-            <p className="text-xs text-slate-400">
-              Dual forensic trail: Retrospective telemetry evidence vs. Proactive attack path forecast
-            </p>
-          </div>
+    <div className="space-y-6">
+      {/* Header Matching Mockup 6 */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 font-sans tracking-tight">
+            AI Explanation
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            Human-readable insights for every detection
+          </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-          <Clock className="w-3.5 h-3.5 text-slate-500" />
-          <span>ETA to Critical Impact: </span>
-          <span className="text-rose-400 font-bold px-2 py-0.5 rounded bg-rose-950/70 border border-rose-600/40">
-            {estimated_time_to_impact}
-          </span>
-        </div>
+        <button
+          onClick={onBackToThreat}
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 shadow-xs transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Threat</span>
+        </button>
       </div>
 
-      {/* Split View: Retrospective (What Happened) VS Prospective (What's Going to Happen) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {/* 2-Column Layout Matching Mockup 6 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left Column: WHAT HAPPENED UNTIL NOW */}
-        <div className="flex flex-col space-y-3.5 p-4 rounded-xl bg-slate-900/40 border border-slate-800/80">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
-              <h4 className="text-sm font-bold text-slate-200 uppercase tracking-wide">
-                1. What Happened Until Now
-              </h4>
-            </div>
-            <span className="text-[11px] font-mono text-cyan-300 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/60">
-              Retrospective Evidence
-            </span>
-          </div>
-
-          {/* Narrative Summary */}
-          <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/50 p-3 rounded-lg border border-slate-800/60">
-            {what_happened_summary}
-          </p>
-
-          {/* Evidence Trail List */}
-          <div>
-            <span className="text-xs font-mono text-slate-400 uppercase tracking-wider block mb-2 font-semibold">
-              Telemetry Evidence Trail
-            </span>
-            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-              {evidence_trail && evidence_trail.length > 0 ? (
-                evidence_trail.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="p-2.5 rounded-lg bg-slate-950/70 border border-slate-800/70 hover:border-slate-700 text-xs transition-colors"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-slate-200">{item.indicator}</span>
-                      <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border uppercase font-bold ${getSeverityBadge(item.severity)}`}>
-                        {item.severity}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-3 text-[11px] font-mono text-slate-400 mb-1">
-                      <div>
-                        Observed: <span className="text-cyan-300 font-bold">{item.observed_value}</span>
-                      </div>
-                      <div>
-                        Baseline: <span className="text-slate-500">{item.baseline_value}</span>
-                      </div>
-                    </div>
-
-                    <p className="text-[11px] text-slate-400 leading-snug">
-                      {item.description}
-                    </p>
-                  </div>
-                ))
-              ) : (
-                <div className="text-xs text-slate-500 font-mono text-center py-4">
-                  No anomalous evidence triggers logged.
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Target Assets Impacted */}
-          {target_assets && target_assets.length > 0 && (
-            <div className="pt-2 border-t border-slate-800/80">
-              <span className="text-xs font-mono text-slate-400 uppercase tracking-wider block mb-1.5 font-semibold">
-                Target Assets / Subnets
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {target_assets.map((asset, idx) => (
-                  <span
-                    key={idx}
-                    className="flex items-center gap-1 text-[11px] font-mono px-2 py-1 rounded bg-slate-800/80 text-slate-300 border border-slate-700/60"
-                  >
-                    <Server className="w-3 h-3 text-cyan-400" />
-                    {asset}
-                  </span>
-                ))}
+        {/* Left Column (Wide) - Detailed AI Forensic Attribution */}
+        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200/90 p-6 shadow-xs space-y-6">
+          
+          {/* Top Detection Summary */}
+          <div className="pb-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
+            <div>
+              <span className="text-xs text-slate-400 font-medium block">Detected Attack</span>
+              <div className="flex items-baseline gap-3 mt-1">
+                <span className="text-3xl font-extrabold text-slate-900 font-sans">
+                  DDoS
+                </span>
+                <span className="text-sm font-semibold text-emerald-600 font-sans">
+                  98% Confidence
+                </span>
               </div>
             </div>
-          )}
-        </div>
 
-        {/* Right Column: WHAT'S GOING TO HAPPEN NEXT & DEFENSE PLAYBOOK */}
-        <div className="flex flex-col space-y-3.5 p-4 rounded-xl bg-slate-900/40 border border-slate-800/80">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-indigo-400" />
-              <h4 className="text-sm font-bold text-slate-200 uppercase tracking-wide">
-                2. What's Going to Happen Next
-              </h4>
+            <div className="text-xs text-slate-500 font-mono">
+              Source <strong className="text-slate-900">192.168.1.10</strong> → Target <strong className="text-slate-900">8.8.8.8</strong>
             </div>
-            <span className="text-[11px] font-mono text-indigo-300 bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800/60">
-              Predictive Trajectory
-            </span>
           </div>
 
-          {/* Prediction summary */}
-          <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-800/60">
-            <div className="text-xs font-bold text-indigo-300 mb-1">
-              Projected Attack Phase: {whats_next_prediction}
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              {whats_next_details}
+          {/* AI Explanation Narrative */}
+          <div>
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2 font-sans">
+              AI Explanation
+            </h4>
+            <p className="text-xs text-slate-600 leading-relaxed font-sans">
+              The traffic from 192.168.1.10 targeting 8.8.8.8 shows a high volume of SYN packets in a short period, which is characteristic of a Distributed Denial of Service (DDoS) attack. The source is sending connection requests without completing the handshake, leading to resource exhaustion on the target server. This pattern matches known DDoS behavior and was identified with 98% confidence by our ensemble model.
             </p>
           </div>
 
-          {/* Projected Trajectory Path */}
-          {attack_trajectory && attack_trajectory.length > 0 && (
-            <div>
-              <span className="text-xs font-mono text-slate-400 uppercase tracking-wider block mb-2 font-semibold">
-                Projected Attack Progression Trajectory
-              </span>
-              <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-lg bg-slate-950/50 border border-slate-800 text-xs">
-                {attack_trajectory.map((step, idx) => (
-                  <React.Fragment key={idx}>
-                    <span className={`px-2 py-1 rounded font-mono font-medium ${
-                      idx === attack_trajectory.length - 1
-                        ? 'bg-rose-950/70 text-rose-300 border border-rose-800/60'
-                        : 'bg-slate-800 text-slate-300'
-                    }`}>
-                      {step}
-                    </span>
-                    {idx < attack_trajectory.length - 1 && (
-                      <ArrowRight className="w-3 h-3 text-slate-600" />
-                    )}
-                  </React.Fragment>
-                ))}
+          {/* Key Indicators */}
+          <div>
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2 font-sans">
+              Key Indicators
+            </h4>
+            <ul className="space-y-2 text-xs text-slate-700 font-sans">
+              <li className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                <span>High SYN packet rate</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                <span>Repeated requests from single source</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                <span>Abnormal traffic volume</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" />
+                <span>Matches patterns in training data (UNSW-NB15, CTU-13)</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* MITRE ATT&CK Mapping */}
+          <div className="pt-4 border-t border-slate-100">
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2.5 font-sans">
+              MITRE ATT&CK Mapping
+            </h4>
+
+            <div className="space-y-2 text-xs font-sans">
+              <div className="flex items-center gap-3">
+                <span className="text-slate-400 w-24">Tactic</span>
+                <span className="font-semibold text-slate-900">Impact (TA0040)</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-slate-400 w-24">Technique</span>
+                <span className="font-semibold text-slate-900">Network Denial of Service (T1498)</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="text-slate-400 w-24 shrink-0">Description</span>
+                <span className="text-slate-600 leading-relaxed">
+                  Adversaries may perform network denial of service to disrupt the availability of a service.
+                </span>
               </div>
             </div>
-          )}
 
-          {/* Defensive Mitigation Playbook */}
-          <div className="flex-1 flex flex-col justify-between">
-            <span className="text-xs font-mono text-emerald-400 uppercase tracking-wider block mb-2 font-semibold flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              Automated Defensive Mitigation Playbook
-            </span>
+            <div className="mt-3">
+              <a
+                href="#mitre"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700"
+              >
+                <span>View in MITRE ATT&CK →</span>
+              </a>
+            </div>
+          </div>
 
-            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-              {mitigation_playbook && mitigation_playbook.length > 0 ? (
-                mitigation_playbook.map((action, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between p-2 rounded-lg bg-slate-950/80 border border-emerald-900/30 text-xs text-slate-200 group hover:border-emerald-700/50 transition-colors"
-                  >
-                    <div className="flex items-start gap-2 pr-2">
-                      <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                      <span className="font-mono text-[11px] leading-tight text-slate-300">
-                        {action}
-                      </span>
-                    </div>
+        </div>
 
-                    <button
-                      onClick={() => handleCopyPlaybook(action, idx)}
-                      className="p-1 rounded text-slate-500 hover:text-cyan-400 hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
-                      title="Copy action command"
-                    >
-                      {copiedIdx === idx ? (
-                        <Check className="w-3 h-3 text-emerald-400" />
-                      ) : (
-                        <Copy className="w-3 h-3" />
-                      )}
-                    </button>
-                  </div>
-                ))
-              ) : (
-                <div className="text-xs text-slate-500 font-mono text-center py-4">
-                  Standard baseline monitoring rules applied.
+        {/* Right Column: Model Consensus & Suggested Actions */}
+        <div className="space-y-6">
+          
+          {/* Model Consensus Card Matching Mockup 6 */}
+          <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-xs">
+            <h3 className="text-sm font-bold text-slate-900 font-sans tracking-tight pb-3 border-b border-slate-100 mb-3">
+              Model Consensus
+            </h3>
+
+            <div className="space-y-3 text-xs font-sans">
+              <div className="flex items-center justify-between py-1">
+                <span className="text-slate-600">Random Forest</span>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold text-red-700 bg-red-50">
+                    DDoS
+                  </span>
+                  <span className="font-bold text-slate-900">97%</span>
                 </div>
-              )}
+              </div>
+
+              <div className="flex items-center justify-between py-1 border-t border-slate-50">
+                <span className="text-slate-600">LSTM</span>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold text-red-700 bg-red-50">
+                    DDoS
+                  </span>
+                  <span className="font-bold text-slate-900">94%</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between py-1 border-t border-slate-50">
+                <span className="text-slate-600">Ensemble</span>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold text-red-700 bg-red-50">
+                    DDoS
+                  </span>
+                  <span className="font-bold text-slate-900">98%</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-slate-200">
+                <span className="font-bold text-slate-900">Final Verdict</span>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded text-xs font-bold text-white bg-red-600">
+                    DDoS
+                  </span>
+                  <span className="text-base font-extrabold text-slate-900">98%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Suggested Actions Card Matching Mockup 6 */}
+          <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-xs flex flex-col justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 font-sans tracking-tight pb-3 border-b border-slate-100 mb-3">
+                Suggested Actions
+              </h3>
+
+              <div className="space-y-3 text-xs text-slate-700 font-sans">
+                <div className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-700 font-semibold flex items-center justify-center shrink-0 text-[11px]">
+                    1
+                  </span>
+                  <span className="mt-0.5">Block or rate-limit traffic from 192.168.1.10</span>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-700 font-semibold flex items-center justify-center shrink-0 text-[11px]">
+                    2
+                  </span>
+                  <span className="mt-0.5">Monitor for similar behavior</span>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-700 font-semibold flex items-center justify-center shrink-0 text-[11px]">
+                    3
+                  </span>
+                  <span className="mt-0.5">Investigate if part of a larger botnet</span>
+                </div>
+              </div>
+            </div>
+
+            {/* CTA Button */}
+            <div className="mt-6 pt-4 border-t border-slate-100">
+              <button
+                onClick={() => setActionApplied(!actionApplied)}
+                className={`w-full py-2.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                  actionApplied
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-[#0f172a] hover:bg-[#1e293b] text-white shadow-xs'
+                }`}
+              >
+                {actionApplied ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Applied Recommended Action</span>
+                  </>
+                ) : (
+                  <span>Apply Recommended Action →</span>
+                )}
+              </button>
             </div>
           </div>
 

@@ -1,16 +1,33 @@
-# React + Vite
+# CyberNetra Frontend Console
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Interactive Security Operations Center (SOC) Command & Control interface for **CyberNetra AI**.
 
-Currently, two official plugins are available:
+Built with **React 18 + Vite**, **Tailwind CSS**, and **Lucide React**, engineered to match enterprise-grade security intelligence systems.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Key Views
 
-## React Compiler
+- **3D Cyber Threat Intelligence Globe (Landing Page)**: Canvas-based 3D globe with geodetic landmass distribution, great-circle threat arcs, animated data photons, and radar beacons.
+- **SOC Executive Dashboard**: Real-time KPI flow meters, dual-axis ingress traffic trend curves, and threat classification donut distribution.
+- **Live Monitoring Feed**: Sub-second streaming packet inspector with pause/resume controls and protocol telemetry.
+- **Network Graph Visualizer**: Dynamic interactive SVG network topology mapping attacker nodes, victim servers, targeted port branches, and ingress pipelines.
+- **AI Explainability (XAI) Panel**: Human-readable causal explanations, confidence metrics, multi-model consensus, and prescriptive mitigation actions.
+- **MITRE ATT&CK Matrix**: Tactical kill-chain matrix mapping detection signatures to techniques (T1046, T1110, T1068, T1498).
+- **Forensic Log Analysis**: Direct ingestion engine with automated feature mapping and threat extraction.
+- **Model Registry**: Runtime inspection of ensemble ML models (Random Forest, XGBoost, Deep Sequence Forecaster).
+- **Forensic Incident Reports**: Executive reporting and audit trails.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Development
 
-## Expanding the Oxlint configuration
+```bash
+# Install dependencies
+npm install
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+# Run Vite dev server
+npm run dev
+
+# Production build
+npm run build
+
+# Code linting
+npm run lint
+```
