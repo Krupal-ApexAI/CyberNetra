@@ -203,6 +203,43 @@ class ModelLoader:
                 print(f"[ModelLoader] Error loading {self.model_filename}: {e}")
                 self.loaded_model = None
 
+    def reload(self) -> Dict[str, Any]:
+        """
+        Hot-reload all UNSW-NB15 model artifacts from disk.
+
+        Call this after training or manual model replacement to pick up
+        the new .pkl files without restarting the server.
+
+        Returns:
+            Dict with 'status', 'errors', and 'model_info' keys.
+        """
+        print("[ModelLoader] Reloading all model artifacts...")
+
+        # Reset state
+        self.binary_model = None
+        self.attack_model = None
+        self.attack_preprocessor = None
+        self.label_encoder = None
+        self.feature_info = {}
+        self.model_config = {}
+        self.binary_threshold = 0.30
+        self.loaded_model = None
+        self.model_filename = None
+        self._unsw_loaded = False
+        self._load_errors = []
+
+        # Re-load everything
+        self._load_unsw_models()
+        self._detect_and_load_saved_model()
+
+        status = "ok" if self._unsw_loaded else "error"
+        print(f"[ModelLoader] Reload complete. Status: {status}")
+        return {
+            "status": status,
+            "errors": self._load_errors,
+            "model_info": self.get_model_info(),
+        }
+
     def is_custom_model_active(self) -> bool:
         return self.loaded_model is not None
 

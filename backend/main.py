@@ -309,6 +309,102 @@ def run_model_training(req: TrainingRequest):
 
 
 # ──────────────────────────────────────────────
+# Model Management Endpoints
+# ──────────────────────────────────────────────
+
+@app.get("/api/model/backups")
+def list_model_backups():
+    """List all available model backup snapshots."""
+    return {
+        "status": "success",
+        "backups": training_engine.list_backups(),
+    }
+
+
+@app.post("/api/model/rollback/{backup_id}")
+def rollback_model(backup_id: str):
+    """Restore production models from a backup snapshot."""
+    return training_engine.rollback_to_backup(backup_id)
+
+
+@app.post("/api/model/reload")
+def reload_models():
+    """Hot-reload model artifacts from disk without restarting the server."""
+    return model_loader.reload()
+
+
+@app.post("/api/model/upload")
+async def upload_model_files(
+    binary_model: UploadFile = File(None),
+    attack_model: UploadFile = File(None),
+    preprocessor: UploadFile = File(None),
+    label_encoder: UploadFile = File(None),
+    feature_info: UploadFile = File(None),
+):
+    """
+    Upload pre-trained .pkl model files to replace production models.
+
+    Upload any combination of the 5 model artifacts:
+    - binary_model: RandomForest binary classifier (.pkl)
+    - attack_model: XGBoost attack classifier (.pkl)
+    - preprocessor: ColumnTransformer preprocessor (.pkl)
+    - label_encoder: LabelEncoder (.pkl)
+    - feature_info: Feature metadata dict (.pkl)
+
+    Backs up existing models before replacement.
+    """
+    import shutil
+
+    file_map = {
+        "unsw_nb15_binary_model.pkl": binary_model,
+        "unsw_nb15_attack_model.pkl": attack_model,
+        "unsw_nb15_attack_preprocessor.pkl": preprocessor,
+        "unsw_nb15_label_encoder.pkl": label_encoder,
+        "unsw_nb15_feature_info.pkl": feature_info,
+    }
+
+    # Filter out None uploads
+    uploads = {name: f for name, f in file_map.items() if f is not None}
+
+    if not uploads:
+        raise HTTPException(
+            status_code=400,
+            detail="No model files provided. Upload at least one of: "
+                   "binary_model, attack_model, preprocessor, "
+                   "label_encoder, feature_info",
+        )
+
+    # Back up current models
+    backup_id = training_engine._backup_current_models()
+
+    # Save uploaded files
+    models_dir = os.path.join(os.path.dirname(__file__), "models")
+    saved_files = []
+    for target_name, upload_file in uploads.items():
+        content = await upload_file.read()
+        target_path = os.path.join(models_dir, target_name)
+        with open(target_path, "wb") as f:
+            f.write(content)
+        saved_files.append({
+            "filename": target_name,
+            "original_name": upload_file.filename,
+            "size_bytes": len(content),
+        })
+
+    # Hot-reload
+    reload_result = model_loader.reload()
+
+    return {
+        "status": "success",
+        "uploaded_files": saved_files,
+        "backup_id": backup_id,
+        "reload_result": reload_result,
+        "message": f"Uploaded {len(saved_files)} model file(s). "
+                   f"Previous models backed up as '{backup_id}'. "
+                   f"Models reloaded successfully.",
+    }
+
+# ──────────────────────────────────────────────
 # Log Analysis Endpoint (ML + Gemini pipeline)
 # ──────────────────────────────────────────────
 
