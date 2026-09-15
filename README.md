@@ -4,23 +4,30 @@
 > *Smart India Hackathon (SIH26153) | Theme: Blockchain & Cybersecurity | Organization: NTRO*
 
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688.svg?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/Frontend-React%2018%20%2B%20Vite-61DAFB.svg?style=flat&logo=react&logoColor=black)](https://reactjs.org/)
+[![React](https://img.shields.io/badge/Frontend-React%2018%2F19%20%2B%20Vite-61DAFB.svg?style=flat&logo=react&logoColor=black)](https://reactjs.org/)
 [![TailwindCSS](https://img.shields.io/badge/Styling-Tailwind%20CSS-38B2AC.svg?style=flat&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg?style=flat&logo=python&logoColor=white)](https://python.org)
+[![Scikit-Learn](https://img.shields.io/badge/ML-Scikit--Learn%20%2B%20XGBoost-F7931E.svg?style=flat&logo=scikit-learn&logoColor=white)](https://scikit-learn.org/)
+[![Google Gemini](https://img.shields.io/badge/GenAI-Google%20Gemini%201.5-8E75B2.svg?style=flat&logo=google&logoColor=white)](https://deepmind.google/technologies/gemini/)
 [![MITRE ATT&CK](https://img.shields.io/badge/Framework-MITRE%20ATT%26CK-red.svg?style=flat)](https://attack.mitre.org/)
 [![SIH 2026](https://img.shields.io/badge/Hackathon-SIH%202026%20%7C%20NTRO-orange.svg?style=flat)](https://sih.gov.in)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 ---
 
+## 📖 Master Documentation
+For the complete, comprehensive project reference and presentation guide, see **[CYBERNETRA_PROJECT_MASTER_GUIDE.md](file:///d:/Dev/Projects/Cyber%20Netra/CyberNetra/CYBERNETRA_PROJECT_MASTER_GUIDE.md)** or **[project.md](file:///d:/Dev/Projects/Cyber%20Netra/CyberNetra/project.md)**.
+
+---
+
 ## Overview
 
-**CyberNetra AI** is a next-generation predictive cybersecurity defense platform. Unlike conventional SIEMs and IDS tools that only flag attacks after damage has begun, CyberNetra ingests live network flow telemetry, classifies active threat vectors, and **forecasts the attacker's next attack phase** before full compromise occurs.
+**CyberNetra AI** is an AI-powered predictive cybersecurity defense platform developed for the **National Technical Research Organisation (NTRO)** under **SIH26153**. Unlike conventional SIEMs and IDS tools that only flag attacks after damage has begun, CyberNetra ingests live network flow telemetry, classifies active threat vectors, and **forecasts the attacker's next attack phase 5 to 10 minutes before full compromise occurs**.
 
-Combined with an **Explainable AI (XAI)** engine, CyberNetra gives SOC analysts actionable insights:
+Combined with an **Explainable AI (XAI)** engine and **Google Gemini GenAI Copilot**, CyberNetra provides SOC analysts with:
 1. **What Happened Until Now**: Retrospective evidence and baseline anomaly detection.
 2. **What Is Going To Happen Next**: Prospective attack trajectory, targeted assets, and time-to-impact ETA.
-3. **Automated Containment Playbook**: Prescriptive remediation steps ready for execution.
+3. **Automated Containment Playbook**: 1-click prescriptive remediation steps ready for execution.
 
 ---
 
@@ -29,36 +36,38 @@ Combined with an **Explainable AI (XAI)** engine, CyberNetra gives SOC analysts 
 | Capability | Traditional SIEM / Rule-Based IDS | CyberNetra AI Predictive Defense |
 | :--- | :--- | :--- |
 | **Detection Timing** | Post-Exploitation (After compromise) | **Pre-Exploitation (During early reconnaissance/auth)** |
-| **Temporal Prediction** | None (Static thresholds only) | **Predicts next attack phase & time-to-impact ETA** |
+| **Temporal Prediction** | None (Static thresholds only) | **Predicts next attack phase & time-to-impact ETA (5-10 min)** |
 | **Context & Explainability** | Raw log dumps & cryptic alert IDs | **Dual-Wing XAI ("What Happened" + "What's Next")** |
-| **Mitigation** | Manual SOC triage (slow response) | **Automated, step-by-step mitigation playbooks** |
-| **Model Extensibility** | Vendor-locked proprietary engines | **Drop-in model registry for PyTorch, Scikit-Learn & ONNX** |
+| **AI Copilot** | None (Manual forensic triage) | **Google Gemini GenAI root-cause & blast radius reasoning** |
+| **Mitigation** | Manual SOC triage (slow response) | **Automated, copyable mitigation playbooks** |
+| **Model Lifecycle** | Vendor-locked proprietary engines | **Drop-in model registry with zero-downtime hot-reload & 1-click rollback** |
+| **Testing Sandbox** | Risky live production testing | **Isolated Controlled Vulnerable Web Lab (Port 9000)** |
 
 ---
 
 ## How It Works: End-to-End Pipeline
 
 ```text
-[ Live Network Telemetry ] ──► (Packets/s, SYN Ratios, Auth Failures, Flow Volume)
-            │
-            ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          CYBERNETRA AI CORE ENGINE                          │
-│                                                                             │
-│  1. Traffic Feature Extractor  ──►  Statistical 3-Sigma Anomaly Baseline    │
-│  2. Active Threat Classifier   ──►  Multi-Vector Anomaly Identification     │
-│  3. Stage Forecast Engine      ──►  LSTM Sequence & Kill-Chain ETA Model    │
-│  4. Dual-Wing XAI Engine       ──►  Retrospective Evidence + Next Steps     │
-│  5. Composite Risk Calculator  ──►  Real-Time 0-100 Threat Scoring Index    │
-└─────────────────────────────────────────────────────────────────────────────┘
-            │
-            ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          SOC COMMAND & CONTROL CENTER                       │
-│                                                                             │
-│  • Dual-Axis Telemetry Graphs   • Radial Risk Threat Gauge                  │
-│  • MITRE ATT&CK Roadmap         • Automated Containment Playbook            │
-└─────────────────────────────────────────────────────────────────────────────┘
+[ Live Telemetry / NetFlow / IPFIX / Vulnerable Lab ] ──► (Packets/s, SYN Ratios, Auth Failures, Flow Volume)
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                       CYBERNETRA AI CORE ENGINE                                         │
+│                                                                                                         │
+│  1. Traffic Feature Extractor  ──►  Statistical 3-Sigma Anomaly Baseline & 43 UNSW-NB15 Features        │
+│  2. Dual-Stage ML Classifier   ──►  Binary (Normal/Attack) + Multi-Class Attack Taxonomy                │
+│  3. Stage Forecast Engine      ──►  LSTM Sequence & Kill-Chain ETA Model (5-10 min warning)             │
+│  4. Dual-Wing XAI & Gemini     ──►  Retrospective Evidence + Generative Threat Reasoning                │
+│  5. Composite Risk Calculator  ──►  Real-Time 0-100 Threat Scoring Index                                │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                       SOC COMMAND & CONTROL CENTER                                      │
+│                                                                                                         │
+│  • Dual-Axis Telemetry Graphs   • Radial Risk Threat Gauge   • Model Training & Hot-Reload Hub          │
+│  • MITRE ATT&CK Roadmap         • Automated Containment Playbook • Live Threat Alerts Stream            │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -66,12 +75,17 @@ Combined with an **Explainable AI (XAI)** engine, CyberNetra gives SOC analysts 
 ## Key Capabilities
 
 - **Real-Time Telemetry Analysis**: Continuous stream processing of flow volumes, packet frequencies, connection attempt spikes, and authentication failures.
-- **Predictive Attack Progression (Flagship Feature)**: Multi-stage LSTM and Bayesian transition models forecasting subsequent adversary stages mapped to the **MITRE ATT&CK** kill chain.
-- **Explainable AI (XAI) Engine**:
+- **Predictive Attack Progression (Flagship Feature)**: Sequence state models forecasting subsequent adversary stages mapped to the **MITRE ATT&CK** kill chain.
+- **Explainable AI (XAI) & Gemini Copilot**:
   - Transparent feature attribution identifying root causes behind threat alerts.
   - Anomaly scoring against 3-sigma baseline deviations.
-- **Extensible Model Registry (`backend/models/saved_models/`)**: Drop PyTorch (`.pt`), Scikit-Learn (`.pkl`), or ONNX models directly into the registry folder for automatic dynamic loading without restarts.
-- **Interactive SOC Simulation**: Ingest realistic telemetry across 4 operational scenarios (*Normal Baseline*, *Suspicious Reconnaissance*, *Multi-Stage Attack Progression*, and *Volumetric DDoS*).
+  - Natural-language executive summaries and blast radius analysis via Google Gemini.
+- **Extensible Model Registry (`backend/models/saved_models/`)**:
+  - Train real Random Forest and XGBoost models on UNSW-NB15 datasets via UI / API (`POST /api/model/train`).
+  - Direct upload of `.pkl` estimators (`POST /api/model/upload`).
+  - Drop `.pkl` files into the registry and hot-reload them dynamically with zero server downtime (`POST /api/model/reload`).
+  - Timestamped model versioning with 1-click rollback (`POST /api/model/rollback/{id}`).
+- **Controlled Vulnerable Web Lab (`vulnerable_lab/`)**: Independent sandbox on port `9000` simulating 6 exploit surfaces (SQLi, XSS, Path Traversal, Command Injection, Brute Force, DoS) and streaming telemetry to CyberNetra.
 
 ---
 
@@ -86,68 +100,58 @@ Combined with an **Explainable AI (XAI)** engine, CyberNetra gives SOC analysts 
 
 ---
 
-## Architecture & Tech Stack
-
-### Frontend
-- **Framework**: React 18 + Vite
-- **Styling**: Tailwind CSS (Cyberpunk/Dark SOC theme)
-- **Visualizations**: Recharts (Dual-axis telemetry timeline, risk radial gauge)
-- **Icons**: Lucide React
-
-### Backend
-- **Framework**: FastAPI (Asynchronous Python 3.10+)
-- **Data & ML**: NumPy, Pandas, Scikit-Learn, PyTorch / Joblib
-- **Validation**: Pydantic v2
-- **Server**: Uvicorn ASGI
-
----
-
 ## Project Structure
 
 ```text
 CyberNetra/
+├── CYBERNETRA_PROJECT_MASTER_GUIDE.md  # Comprehensive Project Master Guide & Presentation Cheat Sheet
+├── project.md                          # Quick architecture and API reference
+├── README.md                           # Main repository README
+│
 ├── backend/
-│   ├── main.py                     # FastAPI application entrypoint and routes
-│   ├── requirements.txt            # Python dependencies
+│   ├── main.py                         # FastAPI server, route handlers, CORS middleware
+│   ├── requirements.txt                # Backend dependencies (FastAPI, Scikit-learn, XGBoost, etc.)
 │   ├── models/
-│   │   ├── __init__.py
-│   │   ├── schemas.py              # Pydantic request/response models
-│   │   ├── model_loader.py         # Dynamic ML/DL model auto-detector
-│   │   └── saved_models/           # Model weight storage (.pkl, .pt, .onnx)
+│   │   ├── schemas.py                  # Pydantic validation schemas
+│   │   ├── model_loader.py             # Hot-reloadable ML model loader
+│   │   └── saved_models/               # Model checkpoints (.pkl) & timestamped backups
 │   ├── services/
-│   │   ├── __init__.py
-│   │   ├── traffic_analyzer.py     # Flow telemetry processor
-│   │   ├── threat_detector.py      # Active threat vector classifier
-│   │   ├── forecast_engine.py      # LSTM / Markov attack stage forecaster
-│   │   ├── risk_calculator.py      # Composite risk scoring engine (0-100)
-│   │   ├── explainability_engine.py# Retrospective & prospective XAI generator
-│   │   └── training_engine.py      # Automated dataset training pipeline
+│   │   ├── training_engine.py          # Real UNSW-NB15 dataset trainer & metrics generator
+│   │   ├── gemini_service.py           # Google Gemini GenAI threat analysis
+│   │   ├── log_parser.py               # Multi-format log parser
+│   │   ├── traffic_analyzer.py         # Flow telemetry feature extractor
+│   │   ├── threat_detector.py          # Active threat vector classifier
+│   │   ├── forecast_engine.py          # Predictive kill-chain transition forecaster
+│   │   ├── risk_calculator.py          # Composite threat scoring engine (0-100)
+│   │   └── explainability_engine.py    # Dual-wing XAI engine & playbooks
 │   └── data/
-│       ├── simulated_traffic.json  # Multi-scenario network telemetry
-│       └── datasets/               # Benchmark datasets (e.g. UNSW-NB15)
+│       ├── simulated_traffic.json      # Multi-scenario network telemetry
+│       ├── datasets/                   # Benchmark datasets
+│       └── uploads/                    # User uploaded training datasets
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx                 # Dashboard state and layout
-│   │   ├── index.css               # Design system & dark cyber theme
-│   │   ├── services/
-│   │   │   └── api.js              # Backend REST client
+│   │   ├── App.jsx                     # Dashboard state and layout
+│   │   ├── index.css                   # Cybernetic dark-mode styling
+│   │   ├── services/api.js             # Fail-safe REST client
 │   │   └── components/
-│   │       ├── Header.jsx          # SOC status header & system pulse
-│   │       ├── Navbar.jsx          # Primary navigation tabs
-│   │       ├── StatCards.jsx       # Threat posture and network metrics
-│   │       ├── TrafficChart.jsx    # Dual-axis real-time telemetry chart
-│   │       ├── RiskScore.jsx       # Radial SVG threat gauge
-│   │       ├── AttackForecast.jsx  # MITRE ATT&CK progression forecast
+│   │       ├── Sidebar.jsx             # Collapsible cyber navigation sidebar
+│   │       ├── StatCards.jsx           # Real-time threat posture metrics
+│   │       ├── TrafficChart.jsx        # Dual-axis real-time telemetry chart
+│   │       ├── RiskScore.jsx           # Radial SVG threat gauge
+│   │       ├── AttackForecast.jsx      # MITRE ATT&CK progression forecast
 │   │       ├── ExplainabilityPanel.jsx # XAI retrospective & prospective cards
-│   │       ├── Alerts.jsx          # Live incident alerts stream
-│   │       ├── SimulationControls.jsx # 4-scenario simulation switcher
-│   │       └── ModelRegistryView.jsx  # ML model deployment & upload manager
+│   │       ├── Alerts.jsx              # Live incident alerts stream
+│   │       ├── SimulationControls.jsx  # 4-scenario simulation switcher
+│   │       └── ModelRegistryView.jsx   # Model training, upload & hot-reload hub
 │   ├── package.json
 │   └── vite.config.js
 │
-├── .gitignore
-└── README.md
+└── vulnerable_lab/                     # Isolated Controlled Vulnerable Web Application (Port 9000)
+    ├── app/                            # FastAPI sandbox application
+    ├── logs/access.log                 # Structured JSON security telemetry
+    ├── test_scenarios.py               # Automated exploit test runner
+    └── send_logs.py                    # Telemetry forwarder to CyberNetra
 ```
 
 ---
@@ -160,14 +164,10 @@ CyberNetra/
 
 ---
 
-### 1. Backend Setup
+### 1. Backend Setup (Port 8000)
 
 ```bash
-# Clone the repository
-git clone https://github.com/Krupal-ApexAI/CyberNetra.git
-cd CyberNetra
-
-# Install Python dependencies
+# In the repository root
 pip install -r backend/requirements.txt
 
 # Launch FastAPI backend server
@@ -180,46 +180,51 @@ python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 
 ---
 
-### 2. Frontend Setup
+### 2. Frontend Setup (Port 5173)
 
 ```bash
-# In a new terminal, navigate to frontend directory
+# In a new terminal
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start the Vite development server
-npm run dev
+npm run dev -- --host
 ```
 
 - Web Dashboard: `http://localhost:5173`
 
 ---
 
-## Simulation & Demo Flow for Judges
+### 3. Controlled Vulnerable Lab (Port 9000)
 
-1. **Normal Baseline**:
-   - Clean network posture with risk score (~10/100) and nominal traffic (~178 pkts/s).
-2. **Suspicious Reconnaissance**:
-   - Triggers network scanning detection (MITRE `T1046`). The forecast engine predicts an imminent credential attack.
-3. **Attack Progression**:
-   - Detects repeated authentication failures (54 failed logins). Risk elevates to 77/100, and the system forecasts **Privilege Escalation within 5-10 minutes**.
-4. **Volumetric DDoS**:
-   - Ingests high-frequency flood (>21,000 pkts/s). The system activates automatic rate-limiting and IP blacklisting recommendations.
+```bash
+# In a new terminal
+cd vulnerable_lab
+pip install -r requirements.txt
+python -m uvicorn app.main:app --host 127.0.0.1 --port 9000 --reload
+```
+
+- Lab Web Portal: `http://localhost:9000`
+- Trigger Automated Exploits: `python vulnerable_lab/test_scenarios.py`
+- Stream Telemetry to CyberNetra: `python vulnerable_lab/send_logs.py`
 
 ---
 
-## API Endpoints Reference
+## API Reference
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/api/health` | Service health status and uptime |
-| `GET` | `/api/scenarios` | List available simulation scenarios |
-| `POST` | `/api/analyze` | Analyze network telemetry and generate threat forecast |
-| `GET` | `/api/models` | List loaded ML/DL models in the registry |
-| `POST` | `/api/models/upload` | Upload new weights (`.pkl`, `.pt`, `.onnx`) |
-| `POST` | `/api/models/train` | Trigger training pipeline on benchmark datasets |
+| `GET` | `/api/dashboard` | Aggregated telemetry, threat classification, and risk index |
+| `GET` | `/api/traffic` | Real-time traffic flow records |
+| `GET` | `/api/forecast` | Predictive attack forecasting, next MITRE tactic, ETA |
+| `GET` | `/api/explainability` | Dual-wing Explainable AI evidence trail and playbooks |
+| `GET` | `/api/alerts` | Filtered SOC security alerts with MITRE technique IDs |
+| `POST`| `/api/simulate` | Switch active scenario (`normal`, `suspicious`, `progression`, `ddos`) |
+| `POST`| `/api/analyze-logs` | Ingest logs for hybrid ML + Gemini AI threat analysis |
+| `GET` | `/api/model-status` | Inspect active ML models, loaded features, and registry status |
+| `POST`| `/api/model/train` | Trigger real ML model training on an uploaded CSV dataset |
+| `POST`| `/api/model/upload` | Upload custom pre-trained `.pkl` model files directly |
+| `POST`| `/api/model/reload` | Hot-swap and reload model files from `saved_models/` without restarting |
+| `GET` | `/api/model/backups` | List all timestamped model backups |
+| `POST`| `/api/model/rollback/{id}` | Rollback to a specific historical model backup |
 
 ---
 
