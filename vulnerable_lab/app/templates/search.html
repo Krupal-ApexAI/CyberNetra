@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Search Catalog{% endblock %}
+
+{% block content %}
+<div class="section-container">
+    <h2>Enterprise Knowledge Search</h2>
+
+    <form action="/search" method="GET" class="search-form-large">
+        <input type="text" name="q" value="{{ query }}" placeholder="Search queries (e.g. VPN, Audit, &lt;script&gt;alert(1)&lt;/script&gt;)" class="form-input" id="search-input">
+        <button type="submit" class="btn-primary">Execute Search</button>
+    </form>
+
+    {% if query %}
+    <!-- Detection banners for attack payloads -->
+    <div id="detection-banner"></div>
+
+    <div class="search-feedback">
+        <!-- Intentionally unescaped reflected query (demonstrating XSS / SQLi pattern detection in telemetry) -->
+        <p>Search results for query: <span class="query-echo">{{ query | safe }}</span></p>
+    </div>
+
+    {% if results %}
+    <div class="table-wrapper">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Document Title</th>
+                    <th>Category</th>
+                    <th>Author</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in results %}
+                <tr>
+                    <td>{{ item.id }}</td>
+                    <td><strong>{{ item.title }}</strong></td>
+                    <td><span class="badge">{{ item.category }}</span></td>
+                    <td><code>{{ item.author }}</code></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        ℹ️ No documents matched your query. Try a different keyword or SQL query.
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    (function() {
+        const query = {{ query | tojson | safe }};
+        if (!query) return;
+
+        const banner = document.getElementById('detection-banner');
+        const lower = query.toLowerCase();
+        const detections = [];
+
+        // XSS detection
+        if (/<script/i.test(query) || /onerror\s*=/i.test(query) || /javascript:/i.test(query) || /<iframe/i.test(query) || /<img[^>]+onerror/i.test(query)) {
+            detections.push({
+                type: 'XSS',
+                mitre: 'T1059.007',
+                label: 'Cross-Site Scripting Payload Reflected',
+                detail: 'The search query contains a script injection payload that was reflected unescaped into the page DOM.'
+            });
+        }
+
+        // SQLi detection
+        if (/or\s+1\s*=\s*1/i.test(lower) || /union\s+select/i.test(lower) || /'\s*or\s*'/i.test(lower) || /--\s*$/i.test(lower) || /drop\s+table/i.test(lower)) {
+            detections.push({
+                type: 'SQLi',
+                mitre: 'T1190',
+                label: 'SQL Injection Query Detected',
+                detail: 'The search query contains SQL syntax tokens that could manipulate database queries.'
+            });
+        }
+
+        if (detections.length === 0) return;
+
+        let html = '';
+        for (const d of detections) {
+            html += `
+                <div class="alert alert-detection">
+                    <span class="detection-icon">🚨</span>
+                    <div>
+                        <strong>${d.label}</strong> <span class="mitre-badge" style="margin-left: 0.5rem;">${d.mitre}</span>
+                        <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.25rem; font-weight: 400;">
+                            ${d.detail} — Security telemetry has been captured by CyberNetra middleware.
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        banner.innerHTML = html;
+        showToast(`${detections.map(d => d.type).join(' + ')} attack detected — telemetry captured`, 'danger');
+    })();
+</script>
+{% endblock %}

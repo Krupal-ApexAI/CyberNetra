@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="CyberNetra Controlled Vulnerable Web Lab — Isolated security testing sandbox for AI-powered threat detection.">
+    <title>{% block title %}Apex Enterprise Portal{% endblock %} | CyberNetra Lab</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+</head>
+<body>
+    <header class="top-nav">
+        <div class="nav-container">
+            <div class="brand">
+                <span class="brand-shield">🛡️</span>
+                <a href="/" class="brand-name">Apex Enterprise Portal</a>
+                <span class="badge-lab">Live Lab</span>
+            </div>
+            <nav class="nav-links">
+                <a href="/">Home</a>
+                <a href="/search">Search</a>
+                <a href="/feedback">Feedback</a>
+                <a href="/admin">Admin Area</a>
+                <a href="/auth/login" class="btn-login">Staff Login</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="lab-banner">
+        ⚠️ <strong>Controlled Security Lab Active</strong> — This application contains intentional vulnerabilities for generating security telemetry for CyberNetra AI.
+    </div>
+
+    <main class="main-container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <p>CyberNetra AI — Controlled Vulnerable Web Lab &nbsp;|&nbsp; Smart India Hackathon 2026 &nbsp;|&nbsp; Port 9000 &nbsp;|&nbsp; Isolated Sandbox</p>
+    </footer>
+
+    <!-- Toast notification container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Shared JS utilities -->
+    <script>
+        // ── Toast Notification System ──
+        function showToast(message, type = 'success', duration = 3500) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            const icons = { success: '✅', danger: '🚨', warning: '⚠️' };
+            toast.innerHTML = `<span>${icons[type] || '💡'}</span><span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(20px)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        // ── API Fetch Helper ──
+        async function labFetch(url, options = {}) {
+            try {
+                const res = await fetch(url, {
+                    headers: { 'Content-Type': 'application/json', ...options.headers },
+                    ...options
+                });
+                return await res.json();
+            } catch (err) {
+                showToast(`Network error: ${err.message}`, 'danger');
+                throw err;
+            }
+        }
+
+        // ── Format timestamp for feed ──
+        function formatTime(isoStr) {
+            try {
+                const d = new Date(isoStr);
+                return d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            } catch { return '--:--:--'; }
+        }
+
+        // ── Status code color ──
+        function statusColor(code) {
+            if (code < 300) return 'var(--accent-emerald)';
+            if (code < 400) return 'var(--accent-cyan)';
+            if (code < 500) return 'var(--accent-amber)';
+            return 'var(--accent-rose)';
+        }
+
+        // ── Event type class ──
+        function eventClass(type) {
+            if (type === 'normal') return 'event-normal';
+            if (type === 'rate_limit') return 'event-rate';
+            return 'event-attack';
+        }
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Internal Feedback{% endblock %}
+
+{% block content %}
+<div class="section-container">
+    <h2>Internal Employee Feedback</h2>
+    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Submit suggestions or audit remarks for the IT team.</p>
+
+    {% if message %}
+    <div class="alert alert-success">
+        ✅ {{ message }}
+    </div>
+    {% endif %}
+
+    <div class="grid-layout">
+        <div class="card">
+            <h3>📝 Submit Note</h3>
+            <form action="/feedback" method="POST" class="auth-form" id="feedback-form">
+                <div class="form-group">
+                    <label for="author">Your Name / Handle:</label>
+                    <input type="text" id="author" name="author" class="form-input" placeholder="e.g. Alice or <script>...">
+                </div>
+                <div class="form-group">
+                    <label for="comment">Feedback / Comment:</label>
+                    <textarea id="comment" name="comment" rows="4" class="form-input" placeholder="Enter comments (Stored XSS payload simulation test)"></textarea>
+                </div>
+                <button type="submit" class="btn-primary">Post Feedback</button>
+            </form>
+
+            <div class="lab-tip" style="margin-top: 1.25rem;">
+                💡 <strong>Stored XSS Demo:</strong> Feedback is stored and rendered <strong>without sanitization</strong> (<code>| safe</code> filter). Script payloads in author/comment fields will execute on render — triggering MITRE <code>T1059.007</code> telemetry.
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>💬 Recent Submissions</h3>
+            <div class="feedback-list" id="feedback-list">
+                {% for item in feedbacks %}
+                <div class="feedback-item" id="fb-{{ loop.index }}">
+                    <strong>{{ item.author | safe }}</strong>:
+                    <!-- Rendered unescaped to demonstrate stored XSS telemetry detection -->
+                    <div>{{ item.comment | safe }}</div>
+                </div>
+                {% endfor %}
+            </div>
+
+            {% if feedbacks | length == 0 %}
+            <div style="color: var(--text-muted); font-size: 0.85rem; padding: 1rem;">
+                No feedback submitted yet.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Detect if any stored XSS payload was injected
+    (function() {
+        const items = document.querySelectorAll('.feedback-item');
+        let xssFound = false;
+        for (const item of items) {
+            const html = item.innerHTML;
+            if (/<script/i.test(html) || /onerror\s*=/i.test(html) || /javascript:/i.test(html)) {
+                item.style.borderLeft = '3px solid var(--accent-rose)';
+                item.style.background = 'rgba(244,63,94,0.06)';
+                xssFound = true;
+            }
+        }
+        if (xssFound) {
+            showToast('⚠️ Stored XSS payload detected in feedback entries', 'danger');
+        }
+    })();
+
+    // Show toast on successful submission
+    {% if message %}
+    showToast('Feedback posted — check for stored XSS rendering', 'success');
+    {% endif %}
+</script>
+{% endblock %}

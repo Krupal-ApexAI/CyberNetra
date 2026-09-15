@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Staff Login{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="card auth-card">
+        <h2>🔒 Employee Authentication</h2>
+        <p class="auth-hint">Default credentials: <code>admin</code> / <code>admin123</code></p>
+
+        {% if error %}
+        <div class="alert alert-danger">
+            ❌ {{ error }}
+        </div>
+        {% endif %}
+
+        {% if success %}
+        <div class="alert alert-success">
+            ✅ {{ success }}
+            <p>Assigned Role: <strong>{{ role }}</strong></p>
+        </div>
+        {% endif %}
+
+        <form action="/auth/login" method="POST" class="auth-form" id="login-form">
+            <div class="form-group">
+                <label for="username">Username or ID:</label>
+                <input type="text" id="username" name="username" required placeholder="e.g. admin or ' or 1=1 --" class="form-input">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required placeholder="Enter password" class="form-input">
+            </div>
+
+            <button type="submit" class="btn-primary btn-block" id="login-btn">Authenticate</button>
+        </form>
+
+        <!-- Brute Force Attempt Counter -->
+        <div class="brute-counter">
+            <span>🔓 Failed Attempts This Session:</span>
+            <span class="counter-value" id="brute-count">0</span>
+            <span style="color: var(--text-muted); font-size: 0.72rem;" id="brute-label">— not yet triggered</span>
+        </div>
+
+        <div class="lab-tip">
+            💡 <strong>Security Telemetry Notice:</strong> Rapid failed login attempts trigger MITRE <code>T1110</code> (Brute Force) alert telemetry for CyberNetra AI. Each failed attempt is recorded with timestamps and source IP.
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Track brute-force attempts in this browser session
+    const STORAGE_KEY = 'cybernetra_brute_count';
+    let bruteCount = parseInt(sessionStorage.getItem(STORAGE_KEY) || '0');
+    const counterEl = document.getElementById('brute-count');
+    const labelEl = document.getElementById('brute-label');
+
+    function updateCounter() {
+        counterEl.textContent = bruteCount;
+        counterEl.classList.remove('pulse');
+        // Force reflow for animation restart
+        void counterEl.offsetWidth;
+        counterEl.classList.add('pulse');
+
+        if (bruteCount === 0) {
+            labelEl.textContent = '— not yet triggered';
+        } else if (bruteCount < 3) {
+            labelEl.textContent = '— monitoring';
+            labelEl.style.color = 'var(--accent-amber)';
+        } else if (bruteCount < 6) {
+            labelEl.textContent = '⚠️ T1110 detection threshold approaching';
+            labelEl.style.color = 'var(--accent-amber)';
+        } else {
+            labelEl.textContent = '🚨 BRUTE FORCE ALERT — T1110 triggered!';
+            labelEl.style.color = 'var(--accent-rose)';
+        }
+    }
+
+    updateCounter();
+
+    // Intercept form submission to track failed attempts
+    const form = document.getElementById('login-form');
+    form.addEventListener('submit', function() {
+        // Increment counter (will show on next page load if login fails)
+        bruteCount++;
+        sessionStorage.setItem(STORAGE_KEY, bruteCount.toString());
+    });
+
+    // Check if page loaded with an error (failed login)
+    {% if error %}
+    updateCounter();
+    showToast('Authentication failed — telemetry event T1110 captured', 'danger');
+    {% endif %}
+
+    {% if success %}
+    // Reset counter on successful login
+    sessionStorage.removeItem(STORAGE_KEY);
+    bruteCount = 0;
+    updateCounter();
+    showToast('Login successful!', 'success');
+    {% endif %}
+</script>
+{% endblock %}

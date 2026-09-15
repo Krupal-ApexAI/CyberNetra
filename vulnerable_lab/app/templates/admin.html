@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}System Administration Area{% endblock %}
+
+{% block content %}
+<div class="section-container">
+    <div class="alert alert-warning">
+        ⚠️ <strong>Security Misconfiguration Notice:</strong> This admin area is exposed without role-based access control (Broken Access Control — MITRE <code>T1078</code> / <code>T1552</code>).
+    </div>
+
+    <!-- Data Exfiltration Risk Panel -->
+    <div class="risk-panel">
+        <div class="risk-icon">🔓</div>
+        <div class="risk-text">
+            <h4>Data Exfiltration Risk — HIGH</h4>
+            <p>This page exposes internal infrastructure topology, database credentials, and API keys without authentication. In a real environment, this would enable lateral movement and privilege escalation.</p>
+        </div>
+    </div>
+
+    <h2>Internal Server Topology &amp; Configuration</h2>
+
+    <div class="grid-layout">
+        <div class="card">
+            <h3>🖥️ Host Environment</h3>
+            <ul class="spec-list">
+                <li>
+                    <strong>OS Version:</strong>
+                    <span>{{ server_info.os }}</span>
+                </li>
+                <li>
+                    <strong>Internal IP:</strong>
+                    <code>{{ server_info.internal_ip }}</code>
+                </li>
+                <li>
+                    <strong>Gateway IP:</strong>
+                    <code>{{ server_info.gateway }}</code>
+                </li>
+                <li>
+                    <strong>Debug Mode:</strong>
+                    <span class="badge-exposed">⚠ {{ server_info.debug_mode }}</span>
+                </li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>🗄️ Database Backend</h3>
+            <ul class="spec-list">
+                <li>
+                    <strong>DBMS:</strong>
+                    <span>{{ server_info.database }}</span>
+                </li>
+                <li>
+                    <strong>Exposed Secret:</strong>
+                    <code style="color: var(--accent-rose);">{{ server_info.api_keys }}</code>
+                    <span class="badge-exposed" style="margin-left: 0.5rem;">EXPOSED</span>
+                </li>
+                <li>
+                    <strong>Port:</strong>
+                    <code>5432 (Internal)</code>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="lab-tip">
+        💡 <strong>Telemetry Captured:</strong> Access to this admin panel without authentication is logged by the security middleware. The exposed API keys and internal IPs demonstrate MITRE <code>T1552</code> (Unsecured Credentials) and <code>T1078</code> (Valid Accounts abuse). CyberNetra AI can correlate this access pattern with reconnaissance activity.
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    showToast('⚠️ Unprotected admin area accessed — telemetry T1078 captured', 'warning');
+</script>
+{% endblock %}

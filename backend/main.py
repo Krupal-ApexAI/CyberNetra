@@ -559,6 +559,59 @@ async def analyze_logs(request: LogAnalysisRequest):
 
 
 # ──────────────────────────────────────────────
+# Vulnerable Lab Telemetry Ingestion Endpoint
+# ──────────────────────────────────────────────
+
+@app.post("/api/lab/ingest")
+async def ingest_lab_logs(payload: Dict[str, Any]):
+    """
+    Accept structured JSON log entries directly from the Controlled Vulnerable Lab,
+    convert them into telemetry format, and execute the full ML + Gemini pipeline.
+    """
+    entries = payload.get("entries", [])
+    if not entries and isinstance(payload, list):
+        entries = payload
+
+    if not entries:
+        raise HTTPException(status_code=400, detail="No log entries provided in 'entries' field.")
+
+    text_blocks = []
+    for entry in entries:
+        client_ip = entry.get("client_ip", "127.0.0.1")
+        method = entry.get("method", "GET")
+        path = entry.get("path", "/")
+        status_code = entry.get("status_code", 200)
+        duration = entry.get("response_time_ms", 10.0)
+        event_type = entry.get("event_type", "normal")
+        indicator = entry.get("indicator", "")
+        mitre = entry.get("mitre_technique", "")
+        bytes_sent = entry.get("bytes_sent", 500)
+        bytes_recv = entry.get("bytes_received", 100)
+
+        record = (
+            f"Timestamp: {entry.get('timestamp')}\n"
+            f"Protocol: TCP\n"
+            f"Source IP: {client_ip}\n"
+            f"Source Port: 52140\n"
+            f"Destination IP: 127.0.0.1\n"
+            f"Destination Port: 9000\n"
+            f"Duration: {duration / 1000.0:.3f}\n"
+            f"Source Bytes: {bytes_recv}\n"
+            f"Destination Bytes: {bytes_sent}\n"
+            f"HTTP Method: {method}\n"
+            f"HTTP Path: {path}\n"
+            f"HTTP Status: {status_code}\n"
+            f"Event Type: {event_type}\n"
+            f"Indicator: {indicator}\n"
+            f"MITRE Technique: {mitre}\n"
+        )
+        text_blocks.append(record)
+
+    combined_text = "\n---\n".join(text_blocks)
+    return await analyze_logs(LogAnalysisRequest(logs=combined_text))
+
+
+# ──────────────────────────────────────────────
 # New SOC Feature Endpoints
 # ──────────────────────────────────────────────
 
