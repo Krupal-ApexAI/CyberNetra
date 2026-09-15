@@ -221,6 +221,7 @@ async def get_gemini_explanation(
     )
 
     try:
+        # pyrefly: ignore [missing-import]
         import google.generativeai as genai
 
         genai.configure(api_key=api_key)

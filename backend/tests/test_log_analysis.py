@@ -5,6 +5,7 @@ Tests the full pipeline: log parsing → feature mapping → ML prediction → G
 
 import os
 import sys
+# pyrefly: ignore [missing-import]
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock

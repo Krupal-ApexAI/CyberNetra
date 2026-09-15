@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # Load environment variables from .env file
 try:
+    # pyrefly: ignore [missing-import]
     from dotenv import load_dotenv
     load_dotenv(os.path.join(Path(__file__).resolve().parent.parent, ".env"))
 except ImportError:
@@ -15,7 +16,9 @@ except ImportError:
 import json
 import logging
 from typing import Dict, Any, List
+# pyrefly: ignore [missing-import]
 from fastapi import FastAPI, HTTPException
+# pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.models.schemas import (
@@ -264,7 +267,9 @@ def get_model_status():
     return model_loader.get_model_info()
 
 from backend.services.training_engine import training_engine
+# pyrefly: ignore [missing-import]
 from pydantic import BaseModel
+# pyrefly: ignore [missing-import]
 from fastapi import UploadFile, File
 
 class TrainingRequest(BaseModel):

@@ -191,6 +191,7 @@ class ModelLoader:
                     print(f"[ModelLoader] [OK] Loaded saved model: {self.model_filename}")
                 elif target_file.endswith((".pt", ".pth")):
                     try:
+                        # pyrefly: ignore [missing-import]
                         import torch
                         self.loaded_model = torch.load(target_file, map_location="cpu")
                         print(f"[ModelLoader] [OK] Loaded PyTorch model: {self.model_filename}")
