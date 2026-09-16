@@ -9,13 +9,13 @@
         <p class="auth-hint">Default credentials: <code>admin</code> / <code>admin123</code></p>
 
         {% if error %}
-        <div class="alert alert-danger">
+        <div class="alert alert-danger" id="login-error-alert">
             ❌ {{ error }}
         </div>
         {% endif %}
 
         {% if success %}
-        <div class="alert alert-success">
+        <div class="alert alert-success" id="login-success-alert">
             ✅ {{ success }}
             <p>Assigned Role: <strong>{{ role }}</strong></p>
         </div>
@@ -81,29 +81,21 @@
             labelEl.style.color = 'var(--accent-rose)';
         }
     }
+    // Check if page loaded with an error (failed login) or success
+    const errorAlert = document.getElementById('login-error-alert');
+    const successAlert = document.getElementById('login-success-alert');
 
-    updateCounter();
-
-    // Intercept form submission to track failed attempts
-    const form = document.getElementById('login-form');
-    form.addEventListener('submit', function () {
-        // Increment counter (will show on next page load if login fails)
+    if (errorAlert) {
         bruteCount++;
         sessionStorage.setItem(STORAGE_KEY, bruteCount.toString());
-    });
+        showToast('Authentication failed — telemetry event T1110 captured', 'danger');
+    } else if (successAlert) {
+        // Reset counter on successful login
+        sessionStorage.removeItem(STORAGE_KEY);
+        bruteCount = 0;
+        showToast('Login successful!', 'success');
+    }
 
-    // Check if page loaded with an error (failed login)
-    {% if error %}
     updateCounter();
-    showToast('Authentication failed — telemetry event T1110 captured', 'danger');
-    {% endif %}
-
-    {% if success %}
-    // Reset counter on successful login
-    sessionStorage.removeItem(STORAGE_KEY);
-    bruteCount = 0;
-    updateCounter();
-    showToast('Login successful!', 'success');
-    {% endif %}
 </script>
 {% endblock %}
