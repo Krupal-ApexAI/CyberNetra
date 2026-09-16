@@ -24,8 +24,7 @@ VALID_ACCOUNTS = {
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Render login page."""
-    return templates.TemplateResponse("login.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "login.html", context={
         "error": None
     })
 
@@ -49,8 +48,7 @@ async def process_login(request: Request, response: Response, username: str = Fo
 
     if is_sqli_bypass:
         # Bypass successful!
-        return templates.TemplateResponse("login.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "login.html", context={
             "success": f"SQL Injection Authentication Bypass Succeeded! Logged in as: {username}",
             "role": "SYSTEM_ADMINISTRATOR"
         })
@@ -58,8 +56,7 @@ async def process_login(request: Request, response: Response, username: str = Fo
     # Standard check
     expected_password = VALID_ACCOUNTS.get(username.strip())
     if expected_password and expected_password == password.strip():
-        return templates.TemplateResponse("login.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "login.html", context={
             "success": f"Welcome back, {username}! Authentication successful.",
             "role": "SECURITY_OPERATOR"
         })
@@ -67,8 +64,7 @@ async def process_login(request: Request, response: Response, username: str = Fo
     # Authentication failure -> return 401 Unauthorized
     # Note: Status 401 is specifically monitored by SecurityLoggingMiddleware
     response.status_code = status.HTTP_401_UNAUTHORIZED
-    return templates.TemplateResponse("login.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "login.html", context={
         "error": "Invalid username or password. Authentication failed.",
     }, status_code=401)
 

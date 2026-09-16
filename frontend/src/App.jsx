@@ -22,7 +22,8 @@ import { ChevronDown } from 'lucide-react';
 import {
   fetchDashboard,
   switchSimulation,
-  fetchModelStatus
+  fetchModelStatus,
+  fetchNetworkStats
 } from './services/api';
 
 export default function App() {
@@ -33,10 +34,33 @@ export default function App() {
   const [scenario, setScenario] = useState('normal');
   const [isSwitching, setIsSwitching] = useState(false);
   const [modelInfo, setModelInfo] = useState(null);
+  const [networkStats, setNetworkStats] = useState(null);
 
   useEffect(() => {
     fetchModelStatus().then((info) => setModelInfo(info));
   }, []);
+
+  // Poll real-time network statistics continuously
+  useEffect(() => {
+    let mounted = true;
+    const loadStats = async () => {
+      try {
+        const res = await fetchNetworkStats(scenario);
+        if (mounted && res) {
+          setNetworkStats(res);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch network stats:", err);
+      }
+    };
+
+    loadStats();
+    const interval = setInterval(loadStats, 2500);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, [scenario]);
 
   // Reset scroll to top on tab switch
   useEffect(() => {
@@ -129,7 +153,7 @@ export default function App() {
               </div>
 
               {/* 4 Stat Cards Matching Mockup 2 */}
-              <StatCards scenario={scenario} />
+              <StatCards stats={networkStats} scenario={scenario} />
 
               {/* Row 2: Network Traffic (2 cols) | Threat Distribution (1 col) */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -24,12 +24,14 @@
         <form action="/auth/login" method="POST" class="auth-form" id="login-form">
             <div class="form-group">
                 <label for="username">Username or ID:</label>
-                <input type="text" id="username" name="username" required placeholder="e.g. admin or ' or 1=1 --" class="form-input">
+                <input type="text" id="username" name="username" required placeholder="e.g. admin or ' or 1=1 --"
+                    class="form-input">
             </div>
 
             <div class="form-group">
                 <label for="password">Password:</label>
-                <input type="password" id="password" name="password" required placeholder="Enter password" class="form-input">
+                <input type="password" id="password" name="password" required placeholder="Enter password"
+                    class="form-input">
             </div>
 
             <button type="submit" class="btn-primary btn-block" id="login-btn">Authenticate</button>
@@ -43,7 +45,9 @@
         </div>
 
         <div class="lab-tip">
-            💡 <strong>Security Telemetry Notice:</strong> Rapid failed login attempts trigger MITRE <code>T1110</code> (Brute Force) alert telemetry for CyberNetra AI. Each failed attempt is recorded with timestamps and source IP.
+            💡 <strong>Security Telemetry Notice:</strong> Rapid failed login attempts trigger MITRE <code>T1110</code>
+            (Brute Force) alert telemetry for CyberNetra AI. Each failed attempt is recorded with timestamps and source
+            IP.
         </div>
     </div>
 </div>
@@ -82,7 +86,7 @@
 
     // Intercept form submission to track failed attempts
     const form = document.getElementById('login-form');
-    form.addEventListener('submit', function() {
+    form.addEventListener('submit', function () {
         // Increment counter (will show on next page load if login fails)
         bruteCount++;
         sessionStorage.setItem(STORAGE_KEY, bruteCount.toString());

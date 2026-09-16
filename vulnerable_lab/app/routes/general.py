@@ -32,8 +32,7 @@ CATALOG_ITEMS = [
 @router.get("/", response_class=HTMLResponse)
 async def home_page(request: Request):
     """Lab portal landing page."""
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "index.html", context={
         "title": "Apex Enterprise Portal — Staging Lab",
         "items": CATALOG_ITEMS
     })
@@ -67,8 +66,7 @@ async def search_page(request: Request, q: str = ""):
         else:
             results = [item for item in CATALOG_ITEMS if lower_q in item["title"].lower() or lower_q in item["category"].lower()]
 
-    return templates.TemplateResponse("search.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "search.html", context={
         "query": q,
         "results": results
     })
@@ -88,8 +86,7 @@ async def admin_portal(request: Request):
         "debug_mode": "ENABLED",
         "api_keys": "sk_test_51Mz49Q..."
     }
-    return templates.TemplateResponse("admin.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "admin.html", context={
         "server_info": server_info
     })
 
@@ -97,8 +94,7 @@ async def admin_portal(request: Request):
 @router.get("/feedback", response_class=HTMLResponse)
 async def feedback_page(request: Request):
     """View stored feedback."""
-    return templates.TemplateResponse("feedback.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "feedback.html", context={
         "feedbacks": FEEDBACK_STORE
     })
 
@@ -111,8 +107,7 @@ async def submit_feedback(request: Request, author: str = Form("Anonymous"), com
     """
     if comment:
         FEEDBACK_STORE.append({"author": author, "comment": comment})
-    return templates.TemplateResponse("feedback.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "feedback.html", context={
         "feedbacks": FEEDBACK_STORE,
         "message": "Feedback submitted successfully!"
     })

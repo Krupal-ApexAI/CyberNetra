@@ -38,6 +38,10 @@ from backend.services.threat_detector import threat_detector
 from backend.services.forecast_engine import forecast_engine
 from backend.services.risk_calculator import risk_calculator
 from backend.services.explainability_engine import explainability_engine
+from backend.services.network_stats_engine import network_stats_engine
+import asyncio
+import random
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -106,15 +110,50 @@ def get_dashboard():
         "ddos": 54
     }
 
+    net_stats = network_stats_engine.get_network_stats(
+        scenario=CURRENT_SCENARIO,
+        active_devices=devices_map.get(CURRENT_SCENARIO, 40),
+        risk_score=risk["score"],
+        risk_level=risk["level"]
+    )
+
     return DashboardStats(
         network_status=status_map.get(CURRENT_SCENARIO, "Active"),
-        active_devices=devices_map.get(CURRENT_SCENARIO, 40),
+        active_devices=net_stats["active_devices"],
         suspicious_traffic_percent=summary["suspicious_percent"],
         risk_score=risk["score"],
         risk_level=risk["level"],
         scenario=CURRENT_SCENARIO,
-        active_threat=threat["threat_name"]
+        active_threat=threat["threat_name"],
+        total_flows=net_stats["total_flows"],
+        threats_detected=net_stats["threats_detected"],
+        suspicious_flows=net_stats["suspicious_flows"],
+        normal_flows=net_stats["normal_flows"],
+        flow_trends=net_stats["trends"],
     )
+
+@app.get("/api/network-stats")
+def get_network_stats():
+    """Real-time aggregated network flow statistics and trends for StatCards."""
+    devices_map = {"normal": 38, "suspicious": 42, "progression": 36, "ddos": 54}
+    risk_map = {
+        "normal": (12, "LOW"),
+        "suspicious": (48, "MEDIUM"),
+        "progression": (82, "HIGH"),
+        "ddos": (97, "CRITICAL"),
+    }
+    score, level = risk_map.get(CURRENT_SCENARIO, (12, "LOW"))
+    return network_stats_engine.get_network_stats(
+        scenario=CURRENT_SCENARIO,
+        active_devices=devices_map.get(CURRENT_SCENARIO, 38),
+        risk_score=score,
+        risk_level=level,
+    )
+
+@app.get("/api/ml/live-analysis")
+def get_live_ml_analysis():
+    """Real-time ML analysis outputs, continuous detections, and time-series for LiveMonitoring."""
+    return network_stats_engine.get_live_ml_analysis()
 
 @app.get("/api/traffic", response_model=TrafficResponse)
 def get_traffic():
@@ -635,9 +674,18 @@ async def ingest_lab_logs(payload: Dict[str, Any]):
         dominant = result.get("dominant_attack") if isinstance(result, dict) else None
         for buffered in _lab_event_buffer[-len(entries):]:
             buffered["classification"] = dominant or "Normal"
+
+        # Pass each event into network_stats_engine for real-time live counters and feed
+        events = result.get("events", []) if isinstance(result, dict) else []
+        for idx, entry in enumerate(entries):
+            ml_pred = events[idx] if idx < len(events) else None
+            network_stats_engine.ingest_lab_event(entry, ml_pred)
+
         return result
     except Exception as e:
-        # Return a basic acknowledgment even if ML pipeline fails
+        # Pass entries to network_stats_engine with rule-based fallback
+        for entry in entries:
+            network_stats_engine.ingest_lab_event(entry, None)
         return {
             "status": "ingested",
             "records_received": len(entries),
@@ -816,6 +864,101 @@ def search_network_entities(q: str = ""):
             matched.append(item)
 
     return {"query": q, "count": len(matched), "results": matched[:10]}
+
+
+# ──────────────────────────────────────────────
+# Continuous ML Analysis Background Worker
+# ──────────────────────────────────────────────
+
+async def _continuous_ml_worker():
+    """
+    Background worker that continuously generates and analyzes network traffic
+    using the ML models (Random Forest + XGBoost) every 3 seconds.
+    """
+    from backend.services.predictor import predict_batch
+
+    await asyncio.sleep(4)
+    logger.info("Continuous ML Traffic Analysis worker active.")
+
+    PROBE_TEMPLATES = [
+        {"src": "192.168.1.105", "dst": "127.0.0.1", "sport": 54120, "dport": 9000, "proto": "TCP", "sbytes": 480, "dbytes": 1200, "dur": 0.045, "method": "GET", "path": "/api/users"},
+        {"src": "10.0.0.88", "dst": "192.168.1.1", "sport": 49152, "dport": 22, "proto": "TCP", "sbytes": 84, "dbytes": 0, "dur": 0.002, "method": "SYN", "path": "PORT_SCAN"},
+        {"src": "172.16.0.4", "dst": "127.0.0.1", "sport": 52110, "dport": 9000, "proto": "TCP", "sbytes": 310, "dbytes": 850, "dur": 0.012, "method": "GET", "path": "/health"},
+        {"src": "185.220.101.5", "dst": "127.0.0.1", "sport": 60124, "dport": 9000, "proto": "TCP", "sbytes": 620, "dbytes": 180, "dur": 0.025, "method": "POST", "path": "/auth/login"},
+        {"src": "10.0.0.14", "dst": "8.8.8.8", "sport": 53530, "dport": 53, "proto": "UDP", "sbytes": 64, "dbytes": 128, "dur": 0.008, "method": "DNS", "path": "QUERY"},
+    ]
+
+    while True:
+        try:
+            await asyncio.sleep(3.0)
+
+            # Select probe based on current scenario
+            if CURRENT_SCENARIO == "ddos":
+                tmpl = random.choice([
+                    {"src": f"198.51.100.{random.randint(10, 250)}", "dst": "127.0.0.1", "sport": random.randint(1024, 65535), "dport": 9000, "proto": "TCP", "sbytes": 1400, "dbytes": 0, "dur": 0.001, "method": "SYN_FLOOD", "path": "/"},
+                    {"src": "198.51.100.44", "dst": "127.0.0.1", "sport": random.randint(1024, 65535), "dport": 9000, "proto": "TCP", "sbytes": 1200, "dbytes": 0, "dur": 0.001, "method": "SYN_FLOOD", "path": "/"}
+                ])
+                is_attack_expected = True
+            elif CURRENT_SCENARIO == "progression":
+                tmpl = random.choice([
+                    {"src": "185.220.101.5", "dst": "127.0.0.1", "sport": 60124, "dport": 9000, "proto": "TCP", "sbytes": 950, "dbytes": 150, "dur": 0.015, "method": "POST", "path": "/auth/login", "failed_attempts": 12},
+                    {"src": "192.168.1.45", "dst": "10.0.4.12", "sport": 51200, "dport": 445, "proto": "TCP", "sbytes": 1240, "dbytes": 420, "dur": 0.035, "method": "SMB", "path": "IPC$"}
+                ])
+                is_attack_expected = True
+            elif CURRENT_SCENARIO == "suspicious":
+                tmpl = random.choice([
+                    {"src": "10.0.0.88", "dst": f"10.0.0.{random.randint(10, 25)}", "sport": random.randint(40000, 60000), "dport": random.choice([22, 80, 443, 8080]), "proto": "TCP", "sbytes": 60, "dbytes": 0, "dur": 0.001, "method": "SYN", "path": "RECON"},
+                    PROBE_TEMPLATES[2]
+                ])
+                is_attack_expected = False
+            else:  # normal
+                tmpl = random.choice([PROBE_TEMPLATES[0], PROBE_TEMPLATES[2], PROBE_TEMPLATES[4]])
+                is_attack_expected = False
+
+            now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            parsed_event = {
+                "timestamp": now_iso,
+                "src_ip": tmpl["src"],
+                "dst_ip": tmpl["dst"],
+                "src_port": tmpl["sport"],
+                "dst_port": tmpl["dport"],
+                "protocol": tmpl["proto"],
+                "duration": tmpl["dur"],
+                "sbytes": tmpl["sbytes"],
+                "dbytes": tmpl["dbytes"],
+                "repeated_connections": tmpl.get("failed_attempts", 1),
+            }
+
+            try:
+                ml_res = predict_batch([parsed_event])
+                pred = ml_res["events"][0] if ml_res.get("events") else None
+            except Exception as ml_err:
+                logger.debug("ML worker prediction fallback: %s", ml_err)
+                pred = None
+
+            entry = {
+                "client_ip": tmpl["src"],
+                "method": tmpl.get("method", "GET"),
+                "path": tmpl.get("path", "/"),
+                "bytes_received": tmpl["sbytes"],
+                "bytes_sent": tmpl["dbytes"],
+                "event_type": "attack" if is_attack_expected else "normal",
+                "indicator": f"{tmpl.get('method', 'GET')} {tmpl.get('path', '/')}",
+                "status_code": 401 if (tmpl.get("failed_attempts") or tmpl.get("path") == "/auth/login") else 200,
+            }
+
+            network_stats_engine.ingest_lab_event(entry, pred)
+            network_stats_engine.total_ml_inferences += 1
+
+        except Exception as e:
+            logger.error("Continuous ML worker error: %s", e)
+            await asyncio.sleep(5)
+
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(_continuous_ml_worker())
+
 
 
 

@@ -571,3 +571,55 @@ export async function fetchLabEvents(limit = 50) {
     return { count: 0, total_buffered: 0, events: [] };
   }
 }
+
+/**
+ * Fetch real-time network flow statistics (Total Flows, Threats, Suspicious, Normal)
+ * GET /api/network-stats
+ */
+export async function fetchNetworkStats(scenario = 'normal') {
+  try {
+    const res = await fetch(`${API_BASE}/api/network-stats`, { signal: AbortSignal.timeout(2500) });
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn("fetchNetworkStats fallback:", err.message);
+    const defaults = {
+      normal: { total_flows: 12438, threats_detected: 14, suspicious_flows: 89, normal_flows: 12335 },
+      suspicious: { total_flows: 14820, threats_detected: 85, suspicious_flows: 430, normal_flows: 14305 },
+      progression: { total_flows: 18950, threats_detected: 320, suspicious_flows: 850, normal_flows: 17780 },
+      ddos: { total_flows: 38400, threats_detected: 2450, suspicious_flows: 1820, normal_flows: 34130 },
+    };
+    const base = defaults[scenario] || defaults.normal;
+    return {
+      ...base,
+      flow_rate_per_sec: 42.5,
+      bandwidth_mbps: 14.8,
+      active_devices: 38,
+      risk_score: 12,
+      risk_level: "LOW",
+      scenario,
+      trends: {
+        total: { value: "+8.3%", is_up: true, sparkColor: "#3b82f6", sparkPath: "M0,18 Q15,16 30,12 T60,6 T90,14 T120,4" },
+        threats: { value: "+12.6%", is_up: true, sparkColor: "#ef4444", sparkPath: "M0,16 Q20,18 40,15 T80,8 T100,12 T120,3" },
+        suspicious: { value: "-4.2%", is_up: false, sparkColor: "#f59e0b", sparkPath: "M0,6 Q20,4 40,8 T70,12 T100,10 T120,18" },
+        normal: { value: "+6.1%", is_up: true, sparkColor: "#10b981", sparkPath: "M0,16 Q25,12 50,15 T80,10 T105,8 T120,4" }
+      }
+    };
+  }
+}
+
+/**
+ * Fetch real-time continuous ML analysis data (live feeds, time series, model status)
+ * GET /api/ml/live-analysis
+ */
+export async function fetchLiveMLAnalysis() {
+  try {
+    const res = await fetch(`${API_BASE}/api/ml/live-analysis`, { signal: AbortSignal.timeout(2500) });
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn("fetchLiveMLAnalysis fallback:", err.message);
+    return null;
+  }
+}
+

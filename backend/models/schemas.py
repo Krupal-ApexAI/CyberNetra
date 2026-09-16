@@ -29,6 +29,24 @@ class DashboardStats(BaseModel):
     risk_level: str
     scenario: str
     active_threat: str
+    total_flows: Optional[int] = None
+    threats_detected: Optional[int] = None
+    suspicious_flows: Optional[int] = None
+    normal_flows: Optional[int] = None
+    flow_trends: Optional[Dict[str, Any]] = None
+
+class NetworkStatsResponse(BaseModel):
+    total_flows: int
+    threats_detected: int
+    suspicious_flows: int
+    normal_flows: int
+    flow_rate_per_sec: float
+    bandwidth_mbps: float
+    active_devices: int
+    risk_score: int
+    risk_level: str
+    scenario: str
+    trends: Dict[str, Any]
 
 class TrafficResponse(BaseModel):
     scenario: str
