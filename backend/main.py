@@ -559,14 +559,21 @@ async def analyze_logs(request: LogAnalysisRequest):
 
 
 # ──────────────────────────────────────────────
-# Vulnerable Lab Telemetry Ingestion Endpoint
+# Vulnerable Lab Integration Layer
 # ──────────────────────────────────────────────
+
+# In-memory buffer of lab events with their ML classification results
+_lab_event_buffer: List[Dict[str, Any]] = []
+_LAB_BUFFER_MAX = 200
+_LAB_URL = os.environ.get("LAB_URL", "http://127.0.0.1:9000")
+
 
 @app.post("/api/lab/ingest")
 async def ingest_lab_logs(payload: Dict[str, Any]):
     """
     Accept structured JSON log entries directly from the Controlled Vulnerable Lab,
-    convert them into telemetry format, and execute the full ML + Gemini pipeline.
+    store them in the event buffer, convert them into telemetry format,
+    and execute the full ML + Gemini pipeline.
     """
     entries = payload.get("entries", [])
     if not entries and isinstance(payload, list):
@@ -574,6 +581,19 @@ async def ingest_lab_logs(payload: Dict[str, Any]):
 
     if not entries:
         raise HTTPException(status_code=400, detail="No log entries provided in 'entries' field.")
+
+    # Store raw entries in the lab event buffer
+    for entry in entries:
+        buffered = {
+            "raw": entry,
+            "ingested_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+            "classification": None,
+        }
+        _lab_event_buffer.append(buffered)
+
+    # Trim buffer if over max
+    while len(_lab_event_buffer) > _LAB_BUFFER_MAX:
+        _lab_event_buffer.pop(0)
 
     text_blocks = []
     for entry in entries:
@@ -608,7 +628,91 @@ async def ingest_lab_logs(payload: Dict[str, Any]):
         text_blocks.append(record)
 
     combined_text = "\n---\n".join(text_blocks)
-    return await analyze_logs(LogAnalysisRequest(logs=combined_text))
+
+    try:
+        result = await analyze_logs(LogAnalysisRequest(logs=combined_text))
+        # Update the buffer with classification results
+        dominant = result.get("dominant_attack") if isinstance(result, dict) else None
+        for buffered in _lab_event_buffer[-len(entries):]:
+            buffered["classification"] = dominant or "Normal"
+        return result
+    except Exception as e:
+        # Return a basic acknowledgment even if ML pipeline fails
+        return {
+            "status": "ingested",
+            "records_received": len(entries),
+            "ml_analysis": "unavailable",
+            "error": str(e),
+        }
+
+
+@app.get("/api/lab/status")
+async def get_lab_status():
+    """
+    Check if the Vulnerable Lab is running and return its status.
+    Proxies to the lab's /lab/status endpoint.
+    """
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            r = await client.get(f"{_LAB_URL}/lab/status")
+            if r.status_code == 200:
+                data = r.json()
+                data["connection"] = "connected"
+                data["lab_url"] = _LAB_URL
+                data["buffered_events"] = len(_lab_event_buffer)
+                return data
+    except Exception:
+        pass
+
+    return {
+        "connection": "disconnected",
+        "status": "offline",
+        "lab_url": _LAB_URL,
+        "buffered_events": len(_lab_event_buffer),
+        "message": "Vulnerable Lab is not responding. Start it with: python -m uvicorn app.main:app --host 127.0.0.1 --port 9000",
+    }
+
+
+@app.post("/api/lab/attack")
+async def trigger_lab_attack(payload: Dict[str, Any]):
+    """
+    Proxy an attack trigger request to the Vulnerable Lab.
+    Frontend can fire attacks against the lab through the backend.
+    """
+    import httpx
+    attack_type = payload.get("attack_type", "")
+    if not attack_type:
+        raise HTTPException(status_code=400, detail="Missing 'attack_type' field.")
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.post(
+                f"{_LAB_URL}/api/attack/trigger",
+                json={"attack_type": attack_type},
+            )
+            result = r.json()
+            result["proxied_through"] = "cybernetra-backend"
+            return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to reach Vulnerable Lab at {_LAB_URL}: {str(e)}. Ensure the lab is running on port 9000.",
+        )
+
+
+@app.get("/api/lab/events")
+async def get_lab_events(limit: int = 50):
+    """
+    Return recently ingested lab events with their ML classification results.
+    """
+    events = _lab_event_buffer[-limit:]
+    events_reversed = list(reversed(events))
+    return {
+        "count": len(events_reversed),
+        "total_buffered": len(_lab_event_buffer),
+        "events": events_reversed,
+    }
 
 
 # ──────────────────────────────────────────────

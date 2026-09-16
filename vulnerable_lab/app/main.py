@@ -26,7 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
 from app.middleware import SecurityLoggingMiddleware
-from app.routes import general, auth, api
+from app.routes import general, auth, api, status
 
 app = FastAPI(
     title="CyberNetra Controlled Vulnerable Web Lab",
@@ -56,6 +56,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.include_router(general.router)
 app.include_router(auth.router)
 app.include_router(api.router)
+app.include_router(status.router)
 
 # Convenience redirects
 @app.get("/login")

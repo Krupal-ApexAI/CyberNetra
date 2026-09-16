@@ -515,3 +515,59 @@ export async function fetchNetworkGraph() {
 }
 
 
+// ──────────────────────────────────────────────
+// Vulnerable Lab Integration APIs
+// ──────────────────────────────────────────────
+
+/**
+ * Fetch Vulnerable Lab connection status and statistics.
+ * GET /api/lab/status
+ */
+export async function fetchLabStatus() {
+  try {
+    const res = await fetch(`${API_BASE}/api/lab/status`);
+    if (!res.ok) throw new Error("Failed to fetch lab status");
+    return await res.json();
+  } catch (err) {
+    console.warn("Lab status unavailable:", err);
+    return {
+      connection: "disconnected",
+      status: "offline",
+      message: "CyberNetra backend is not responding.",
+    };
+  }
+}
+
+/**
+ * Trigger an attack against the Vulnerable Lab via the backend proxy.
+ * POST /api/lab/attack
+ * @param {string} attackType - One of: sqli, xss, traversal, cmd, brute, dos
+ */
+export async function triggerLabAttack(attackType) {
+  const res = await fetch(`${API_BASE}/api/lab/attack`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ attack_type: attackType }),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Attack request failed (${res.status})`);
+  }
+  return await res.json();
+}
+
+/**
+ * Fetch recently ingested lab events with ML classification results.
+ * GET /api/lab/events
+ * @param {number} limit - Maximum events to return (default 50)
+ */
+export async function fetchLabEvents(limit = 50) {
+  try {
+    const res = await fetch(`${API_BASE}/api/lab/events?limit=${limit}`);
+    if (!res.ok) throw new Error("Failed to fetch lab events");
+    return await res.json();
+  } catch (err) {
+    console.warn("Lab events unavailable:", err);
+    return { count: 0, total_buffered: 0, events: [] };
+  }
+}

@@ -16,6 +16,7 @@ import MitreAttackView from './components/MitreAttackView';
 import ModelRegistryView from './components/ModelRegistryView';
 import LogAnalysis from './components/LogAnalysis';
 import ExplainabilityPanel from './components/ExplainabilityPanel';
+import VulnerableLab from './components/VulnerableLab';
 import { ChevronDown } from 'lucide-react';
 
 import {
@@ -204,6 +205,11 @@ export default function App() {
           {/* TAB 10: MITRE ATT&CK */}
           {activeTab === 'mitre' && (
             <MitreAttackView />
+          )}
+
+          {/* TAB 11: VULNERABLE LAB */}
+          {activeTab === 'lab' && (
+            <VulnerableLab />
           )}
 
         </main>

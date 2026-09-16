@@ -2,17 +2,76 @@
 CyberNetra Controlled Vulnerable Lab - Security Telemetry Middleware
 Captures all HTTP requests/responses, performs signature and behavioral analysis,
 and logs structured security events (JSON Lines) to access.log for CyberNetra ingestion.
+Automatically forwards telemetry to CyberNetra backend in real-time.
 """
 
 import os
 import re
 import json
 import time
+import asyncio
 from datetime import datetime, timezone
 from collections import defaultdict
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
+
+# ─────────────────────────────────────────────────────────────
+# Real-Time Telemetry Auto-Forwarding to CyberNetra Backend
+# ─────────────────────────────────────────────────────────────
+
+CYBERNETRA_API = os.environ.get("CYBERNETRA_API", "http://127.0.0.1:8000")
+_auto_forward_enabled = True
+_forward_buffer: list = []
+_forward_lock = asyncio.Lock()
+_FORWARD_BATCH_SIZE = 5
+_FORWARD_INTERVAL = 2.0  # seconds
+_forwarding_task_started = False
+
+
+async def _forward_telemetry_batch():
+    """Background task that periodically flushes buffered events to CyberNetra."""
+    global _auto_forward_enabled
+    try:
+        import httpx
+    except ImportError:
+        _auto_forward_enabled = False
+        return
+
+    while _auto_forward_enabled:
+        await asyncio.sleep(_FORWARD_INTERVAL)
+
+        async with _forward_lock:
+            if not _forward_buffer:
+                continue
+            batch = _forward_buffer.copy()
+            _forward_buffer.clear()
+
+        # Fire-and-forget POST to CyberNetra
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                await client.post(
+                    f"{CYBERNETRA_API}/api/lab/ingest",
+                    json={"entries": batch},
+                )
+        except Exception:
+            # Silently fail — CyberNetra backend may not be running
+            pass
+
+
+async def _enqueue_for_forwarding(log_entry: dict):
+    """Add a telemetry event to the forwarding buffer."""
+    global _forwarding_task_started
+    if not _auto_forward_enabled:
+        return
+
+    # Start background forwarding task on first event
+    if not _forwarding_task_started:
+        _forwarding_task_started = True
+        asyncio.create_task(_forward_telemetry_batch())
+
+    async with _forward_lock:
+        _forward_buffer.append(log_entry)
 
 # Path to log file
 LOG_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "logs"))
@@ -204,6 +263,12 @@ class SecurityLoggingMiddleware(BaseHTTPMiddleware):
         try:
             with open(LOG_FILE, "a", encoding="utf-8") as f:
                 f.write(json.dumps(log_entry) + "\n")
+        except Exception:
+            pass
+
+        # Auto-forward to CyberNetra backend (non-blocking)
+        try:
+            await _enqueue_for_forwarding(log_entry)
         except Exception:
             pass
 

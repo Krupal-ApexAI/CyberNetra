@@ -11,6 +11,7 @@ import {
   Cpu,
   FileText,
   Shield,
+  FlaskConical,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
@@ -31,7 +32,8 @@ export default function Sidebar({
     { id: 'explainability', label: 'AI Explanations', icon: BrainCircuit },
     { id: 'mitre', label: 'MITRE ATT&CK', icon: Layers },
     { id: 'models', label: 'Model Performance', icon: Cpu },
-    { id: 'reports', label: 'Reports', icon: FileText }
+    { id: 'reports', label: 'Reports', icon: FileText },
+    { id: 'lab', label: 'Vulnerable Lab', icon: FlaskConical }
   ];
 
   return (
