@@ -11,7 +11,7 @@
 <!-- Quick Access Cards -->
 <div class="grid-layout">
     <div class="card">
-        <h3>🔍 Enterprise Document Search</h3>
+        <h3>Enterprise Document Search</h3>
         <p>Query company network policies, financial reports, and infrastructure secrets.</p>
         <form action="/search" method="GET" class="search-form">
             <input type="text" name="q" placeholder="Search resources or SQL payload..." class="form-input" id="home-search-input">
@@ -20,13 +20,13 @@
     </div>
 
     <div class="card">
-        <h3>🔐 Staff Authentication Portal</h3>
+        <h3>Staff Authentication Portal</h3>
         <p>Access employee accounts or test authentication handling and credential spraying.</p>
         <a href="/auth/login" class="btn-secondary">Open Login Portal &rarr;</a>
     </div>
 
     <div class="card">
-        <h3>🛠️ Network Diagnostic Utilities</h3>
+        <h3>Network Diagnostic Utilities</h3>
         <p>Test remote ping diagnostics or probe for command injection vulnerabilities.</p>
         <div class="code-box">
             <code>POST /api/tools/ping {"host": "127.0.0.1"}</code>
@@ -34,7 +34,7 @@
     </div>
 
     <div class="card">
-        <h3>📂 File Viewer &amp; Log Audit</h3>
+        <h3>File Viewer &amp; Log Audit</h3>
         <p>Audit server system logs or test directory traversal boundaries.</p>
         <div class="code-box">
             <code>GET /api/logs/view?file=system.log</code>
@@ -45,7 +45,7 @@
 <!-- Interactive Attack Console -->
 <section class="section-container">
     <div class="attack-console-header">
-        <h2>⚡ Interactive Attack Console</h2>
+        <h2>Interactive Attack Console</h2>
         <span class="badge" style="font-size: 0.72rem;">6 Vulnerability Surfaces</span>
     </div>
 
@@ -55,10 +55,10 @@
             <div class="attack-tag">
                 <span class="mitre-badge">T1190</span> SQL Injection
             </div>
-            <h3>💉 SQL Injection</h3>
+            <h3>SQL Injection</h3>
             <p>Inject SQL payloads to bypass authentication and dump user records.</p>
             <button class="btn-attack" onclick="fireAttack('sqli', this)">
-                🔥 Fire Attack
+                Trigger Attack
             </button>
             <div class="attack-response" id="response-sqli"></div>
         </div>
@@ -68,10 +68,10 @@
             <div class="attack-tag">
                 <span class="mitre-badge">T1059.007</span> Cross-Site Scripting
             </div>
-            <h3>🕷️ XSS Payload</h3>
+            <h3>XSS Payload</h3>
             <p>Inject script payloads via reflected search and stored feedback fields.</p>
             <button class="btn-attack" onclick="fireAttack('xss', this)">
-                🔥 Fire Attack
+                Trigger Attack
             </button>
             <div class="attack-response" id="response-xss"></div>
         </div>
@@ -81,10 +81,10 @@
             <div class="attack-tag">
                 <span class="mitre-badge">T1083</span> Path Traversal
             </div>
-            <h3>📁 Directory Traversal</h3>
+            <h3>Directory Traversal</h3>
             <p>Read sensitive system files by traversing outside the web root.</p>
             <button class="btn-attack" onclick="fireAttack('traversal', this)">
-                🔥 Fire Attack
+                Trigger Attack
             </button>
             <div class="attack-response" id="response-traversal"></div>
         </div>
@@ -94,10 +94,10 @@
             <div class="attack-tag">
                 <span class="mitre-badge">T1059</span> Command Injection
             </div>
-            <h3>💻 OS Command Injection</h3>
+            <h3>OS Command Injection</h3>
             <p>Execute arbitrary system commands through diagnostic utility.</p>
             <button class="btn-attack" onclick="fireAttack('cmd', this)">
-                🔥 Fire Attack
+                Trigger Attack
             </button>
             <div class="attack-response" id="response-cmd"></div>
         </div>
@@ -107,10 +107,10 @@
             <div class="attack-tag">
                 <span class="mitre-badge">T1110</span> Credential Brute-Force
             </div>
-            <h3>🔑 Brute Force Login</h3>
+            <h3>Brute Force Login</h3>
             <p>Rapid-fire authentication attempts with common password lists.</p>
             <button class="btn-attack" onclick="fireAttack('brute', this)">
-                🔥 Fire Attack
+                Trigger Attack
             </button>
             <div class="attack-response" id="response-brute"></div>
         </div>
@@ -120,10 +120,10 @@
             <div class="attack-tag">
                 <span class="mitre-badge">T1498</span> Denial of Service
             </div>
-            <h3>🌊 Resource Exhaustion</h3>
+            <h3>Resource Exhaustion</h3>
             <p>Flood resource-intensive endpoint to simulate volumetric DoS.</p>
             <button class="btn-attack" onclick="fireAttack('dos', this)">
-                🔥 Fire Attack
+                Trigger Attack
             </button>
             <div class="attack-response" id="response-dos"></div>
         </div>

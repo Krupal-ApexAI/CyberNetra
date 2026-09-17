@@ -27,13 +27,19 @@ import {
   Cpu,
   ShieldAlert,
   ListChecks,
-  FileText
+  FileText,
+  Radio,
+  Power,
+  RotateCcw,
 } from 'lucide-react';
 
 import {
   fetchLabStatus,
   triggerLabAttack,
   fetchLabEvents,
+  fetchLabDemoMode,
+  toggleLabDemoMode,
+  resetLabDemoMode,
 } from '../services/api';
 
 // ── Attack surface definitions ──
@@ -141,6 +147,17 @@ export default function VulnerableLab() {
   const [showRawPayload, setShowRawPayload] = useState({});
   const [refreshing, setRefreshing] = useState(false);
 
+  // CyberNetra Demo Mode state
+  const [demoMode, setDemoMode] = useState({
+    enabled: false,
+    cybernetra_connected: false,
+    telemetry_status: 'INACTIVE',
+    events_sent: 0,
+    events_queued: 0,
+  });
+  const [togglingDemo, setTogglingDemo] = useState(false);
+  const [resettingDemo, setResettingDemo] = useState(false);
+
   // Fetch lab status
   const loadStatus = useCallback(async () => {
     try {
@@ -163,30 +180,81 @@ export default function VulnerableLab() {
     }
   }, []);
 
+  // Fetch Demo Mode state
+  const loadDemoMode = useCallback(async () => {
+    try {
+      const data = await fetchLabDemoMode();
+      if (data && typeof data.enabled === 'boolean') {
+        setDemoMode(data);
+      }
+    } catch {
+      // Keep existing demoMode state
+    }
+  }, []);
+
   // Initial load
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      await Promise.all([loadStatus(), loadEvents()]);
+      await Promise.all([loadStatus(), loadEvents(), loadDemoMode()]);
       setLoading(false);
     };
     init();
-  }, [loadStatus, loadEvents]);
+  }, [loadStatus, loadEvents, loadDemoMode]);
 
-  // Auto-refresh every 4 seconds
+  // Auto-refresh every 3.5 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       loadStatus();
       loadEvents();
-    }, 4000);
+      loadDemoMode();
+    }, 3500);
     return () => clearInterval(interval);
-  }, [loadStatus, loadEvents]);
+  }, [loadStatus, loadEvents, loadDemoMode]);
 
   // Manual refresh
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([loadStatus(), loadEvents()]);
+    await Promise.all([loadStatus(), loadEvents(), loadDemoMode()]);
     setTimeout(() => setRefreshing(false), 500);
+  };
+
+  // Toggle Demo Mode ON/OFF from CyberNetra
+  const handleToggleDemoMode = async () => {
+    if (togglingDemo) return;
+    setTogglingDemo(true);
+    const nextState = !demoMode.enabled;
+
+    // Optimistic UI update
+    setDemoMode(prev => ({
+      ...prev,
+      enabled: nextState,
+      telemetry_status: nextState ? 'ACTIVE' : 'INACTIVE',
+    }));
+
+    try {
+      const result = await toggleLabDemoMode(nextState);
+      setDemoMode(result);
+    } catch (err) {
+      console.error('Failed to toggle demo mode:', err);
+      loadDemoMode();
+    } finally {
+      setTogglingDemo(false);
+    }
+  };
+
+  // Reset Demo Session counters & queues
+  const handleResetDemo = async () => {
+    if (resettingDemo) return;
+    setResettingDemo(true);
+    try {
+      const result = await resetLabDemoMode();
+      setDemoMode(result);
+    } catch (err) {
+      console.error('Failed to reset demo session:', err);
+    } finally {
+      setResettingDemo(false);
+    }
   };
 
   // Fire an attack
@@ -254,6 +322,107 @@ export default function VulnerableLab() {
             <ExternalLink className="w-3.5 h-3.5" />
             Open Lab Portal
           </a>
+        </div>
+      </div>
+
+      {/* CyberNetra Demo Mode Controller (Enterprise Security Appliance Control) */}
+      <div
+        className={`rounded-xl border transition-all overflow-hidden shadow-xs ${
+          demoMode.enabled
+            ? 'bg-slate-950 border-emerald-500/40 text-slate-100 shadow-emerald-950/20'
+            : 'bg-white border-slate-200 text-slate-800'
+        }`}
+      >
+        <div className="px-5 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div
+              className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border ${
+                demoMode.enabled
+                  ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-400'
+                  : 'bg-slate-100 border-slate-200 text-slate-500'
+              }`}
+            >
+              <Radio className={`w-5 h-5 ${demoMode.enabled ? 'animate-pulse text-emerald-400' : ''}`} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="text-sm font-bold tracking-tight">
+                  CYBERNETRA DEMO MODE
+                </span>
+                <span
+                  className={`px-2.5 py-0.5 rounded text-[11px] font-mono font-semibold uppercase tracking-wider ${
+                    demoMode.enabled
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      : 'bg-slate-100 text-slate-600 border border-slate-200'
+                  }`}
+                >
+                  {demoMode.enabled ? '● TELEMETRY STREAM ACTIVE' : '○ NORMAL LAB MODE (STANDALONE)'}
+                </span>
+                <span className={`text-[11px] font-mono ${demoMode.enabled ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Target: 127.0.0.1:8000/api/lab/ingest
+                </span>
+              </div>
+              <p className={`text-xs mt-1 ${demoMode.enabled ? 'text-slate-400' : 'text-slate-500'}`}>
+                {demoMode.enabled
+                  ? 'Real-time telemetry streaming is ACTIVE. All web requests & attack payloads are continuously analyzed by UNSW-NB15 ML models, driving Live Monitoring & Alerts.'
+                  : 'Isolated sandbox mode. All traffic and attack logs are strictly confined to local lab access.log. Zero telemetry enters CyberNetra.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Right Controls: Telemetry Metrics, Toggle Switch, Reset */}
+          <div className="flex items-center gap-3.5 shrink-0 self-start md:self-center">
+            {/* Monospace telemetry counters */}
+            <div className={`text-right font-mono text-xs hidden lg:block ${demoMode.enabled ? 'text-slate-300' : 'text-slate-600'}`}>
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase mr-1.5">Streamed:</span>
+                <span className="font-bold">{demoMode.events_sent || 0}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 uppercase mr-1.5">Queued:</span>
+                <span className="font-semibold">{demoMode.events_queued || 0}</span>
+              </div>
+            </div>
+
+            {/* Main Demo Mode Toggle Button */}
+            <button
+              type="button"
+              id="demo-mode-toggle-btn"
+              onClick={handleToggleDemoMode}
+              disabled={togglingDemo}
+              title={demoMode.enabled ? 'Click to disable Demo Mode (switch to Normal Lab Mode)' : 'Click to enable Demo Mode (stream to CyberNetra)'}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-mono text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer shadow-xs ${
+                demoMode.enabled
+                  ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20 active:scale-95'
+                  : 'bg-slate-900 hover:bg-slate-800 text-white active:scale-95'
+              }`}
+            >
+              {togglingDemo ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Power className={`w-4 h-4 ${demoMode.enabled ? 'text-slate-950' : 'text-emerald-400'}`} />
+              )}
+              <span>{demoMode.enabled ? 'DEMO MODE: ON' : 'DEMO MODE: OFF'}</span>
+              <span className={`w-2 h-2 rounded-full ${demoMode.enabled ? 'bg-slate-950' : 'bg-slate-500'}`} />
+            </button>
+
+            {/* Reset Session Button */}
+            <button
+              type="button"
+              id="demo-mode-reset-btn"
+              onClick={handleResetDemo}
+              disabled={resettingDemo}
+              title="Reset streamed telemetry counters and clear queued buffer"
+              className={`flex items-center gap-1 px-2.5 py-2 rounded-lg border text-xs font-medium cursor-pointer transition-colors ${
+                demoMode.enabled
+                  ? 'border-slate-800 bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800'
+                  : 'border-slate-200 bg-white text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+              }`}
+            >
+              <RotateCcw className={`w-3.5 h-3.5 ${resettingDemo ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline font-mono text-[11px]">Reset</span>
+            </button>
+          </div>
         </div>
       </div>
 

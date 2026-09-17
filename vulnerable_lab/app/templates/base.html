@@ -15,9 +15,9 @@
     <header class="top-nav">
         <div class="nav-container">
             <div class="brand">
-                <span class="brand-shield">🛡️</span>
+                <svg class="brand-shield-svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 <a href="/" class="brand-name">Apex Enterprise Portal</a>
-                <span class="badge-lab">Live Lab</span>
+                <span class="badge-lab">Sandbox</span>
             </div>
             <nav class="nav-links">
                 <a href="/">Home</a>
@@ -29,30 +29,26 @@
         </div>
     </header>
 
-    <div class="lab-banner">
-        ⚠️ <strong>Controlled Security Lab Active</strong> — This application contains intentional vulnerabilities for generating security telemetry for CyberNetra AI.
-    </div>
-
     <main class="main-container">
         {% block content %}{% endblock %}
     </main>
 
     <footer class="footer">
-        <p>CyberNetra AI — Controlled Vulnerable Web Lab &nbsp;|&nbsp; Smart India Hackathon 2026 &nbsp;|&nbsp; Port 9000 &nbsp;|&nbsp; Isolated Sandbox</p>
+        <p>CyberNetra AI &nbsp;|&nbsp; Controlled Vulnerable Web Lab &nbsp;|&nbsp; Smart India Hackathon 2026 &nbsp;|&nbsp; Port 9000 &nbsp;|&nbsp; Isolated Sandbox</p>
     </footer>
 
     <!-- Toast notification container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <!-- Shared JS utilities -->
+    <!-- Shared JS utilities & Demo Mode Controller -->
     <script>
-        // ── Toast Notification System ──
+        // ── Toast Notification System (No Emojis) ──
         function showToast(message, type = 'success', duration = 3500) {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             toast.className = `toast toast-${type}`;
-            const icons = { success: '✅', danger: '🚨', warning: '⚠️' };
-            toast.innerHTML = `<span>${icons[type] || '💡'}</span><span>${message}</span>`;
+            const tags = { success: '[OK]', danger: '[ALERT]', warning: '[WARN]' };
+            toast.innerHTML = `<span class="toast-tag font-mono">${tags[type] || '[INFO]'}</span><span class="toast-msg">${message}</span>`;
             container.appendChild(toast);
             setTimeout(() => {
                 toast.style.opacity = '0';
