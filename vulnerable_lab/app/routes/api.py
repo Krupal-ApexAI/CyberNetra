@@ -35,7 +35,45 @@ class AttackTriggerRequest(BaseModel):
 class PingRequest(BaseModel):
     host: str
 
+class DemoModeToggleRequest(BaseModel):
+    enabled: bool
+
 LOG_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "logs", "access.log"))
+
+
+# ─────────────────────────────────────────────────────────────
+# CyberNetra Demo Mode Endpoints
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/demo-mode")
+async def get_demo_mode_status():
+    """
+    Get current Demo Mode state, CyberNetra connection health,
+    and telemetry transmission counters.
+    """
+    from app.services.demo_mode import demo_mode_manager
+    return await demo_mode_manager.get_status()
+
+
+@router.post("/demo-mode")
+async def toggle_demo_mode(req: DemoModeToggleRequest):
+    """
+    Toggle Demo Mode ON or OFF.
+    When ON: telemetry is forwarded to CyberNetra backend.
+    When OFF: lab runs locally with isolated logging.
+    """
+    from app.services.demo_mode import demo_mode_manager
+    return await demo_mode_manager.set_enabled(req.enabled)
+
+
+@router.post("/demo-mode/reset")
+async def reset_demo_mode():
+    """
+    Reset lab demo session counters (events sent, queued buffer).
+    """
+    from app.services.demo_mode import demo_mode_manager
+    return await demo_mode_manager.reset_session()
+
 
 
 @router.get("/users")

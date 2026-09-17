@@ -282,7 +282,20 @@ def get_alerts():
             mitre_id=None
         ))
 
-    return AlertsResponse(alerts=alerts)
+    # Prepend dynamic alerts generated from live telemetry
+    dynamic_items = [
+        AlertItem(
+            id=a["id"],
+            timestamp=a["timestamp"],
+            severity=a["severity"],
+            title=a["title"],
+            message=a["message"],
+            mitre_id=a.get("mitre_id")
+        )
+        for a in network_stats_engine.dynamic_alerts
+    ]
+
+    return AlertsResponse(alerts=dynamic_items + alerts)
 
 @app.post("/api/simulate/{scenario}", response_model=SimulationResponse)
 def simulate_scenario(scenario: str):
@@ -669,27 +682,39 @@ async def ingest_lab_logs(payload: Dict[str, Any]):
     combined_text = "\n---\n".join(text_blocks)
 
     try:
-        result = await analyze_logs(LogAnalysisRequest(logs=combined_text))
+        from backend.services.log_parser import parse_logs
+        from backend.services.predictor import predict_batch
+
+        parsed = parse_logs(combined_text)
+        prediction_results = predict_batch(parsed["events"]) if parsed.get("events") else {"events": []}
+        events = prediction_results.get("events", [])
+        dominant = prediction_results.get("dominant_attack")
+
         # Update the buffer with classification results
-        dominant = result.get("dominant_attack") if isinstance(result, dict) else None
         for buffered in _lab_event_buffer[-len(entries):]:
             buffered["classification"] = dominant or "Normal"
 
         # Pass each event into network_stats_engine for real-time live counters and feed
-        events = result.get("events", []) if isinstance(result, dict) else []
         for idx, entry in enumerate(entries):
             ml_pred = events[idx] if idx < len(events) else None
-            network_stats_engine.ingest_lab_event(entry, ml_pred)
+            network_stats_engine.ingest_lab_event(entry, ml_pred, is_lab=True)
 
-        return result
-    except Exception as e:
-        # Pass entries to network_stats_engine with rule-based fallback
-        for entry in entries:
-            network_stats_engine.ingest_lab_event(entry, None)
         return {
             "status": "ingested",
             "records_received": len(entries),
-            "ml_analysis": "unavailable",
+            "dominant_attack": dominant,
+            "events": events,
+            "pipeline": "UNSW-NB15 ML Ensemble (RandomForest + XGBoost)"
+        }
+    except Exception as e:
+        logger.warning("Error in /api/lab/ingest: %s", str(e))
+        # Pass entries to network_stats_engine with rule-based fallback
+        for entry in entries:
+            network_stats_engine.ingest_lab_event(entry, None, is_lab=True)
+        return {
+            "status": "ingested",
+            "records_received": len(entries),
+            "ml_analysis": "fallback",
             "error": str(e),
         }
 
@@ -720,6 +745,77 @@ async def get_lab_status():
         "buffered_events": len(_lab_event_buffer),
         "message": "Vulnerable Lab is not responding. Start it with: python -m uvicorn app.main:app --host 127.0.0.1 --port 9000",
     }
+
+
+@app.get("/api/lab/demo-mode")
+async def get_lab_demo_mode():
+    """
+    Proxy GET /api/demo-mode to Vulnerable Lab.
+    Returns the current Demo Mode state, events sent, events queued, and connection health.
+    """
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            r = await client.get(f"{_LAB_URL}/api/demo-mode")
+            if r.status_code == 200:
+                return r.json()
+    except Exception as e:
+        logger.debug("Failed to get lab demo-mode status: %s", e)
+
+    return {
+        "enabled": False,
+        "cybernetra_connected": False,
+        "cybernetra_api": "http://127.0.0.1:8000",
+        "telemetry_status": "OFFLINE",
+        "events_sent": 0,
+        "events_queued": 0,
+        "error": "Vulnerable Lab is not responding on port 9000",
+    }
+
+
+@app.post("/api/lab/demo-mode")
+async def toggle_lab_demo_mode(payload: Dict[str, Any]):
+    """
+    Proxy POST /api/demo-mode to Vulnerable Lab.
+    Enables or disables CyberNetra Demo Mode remotely.
+    """
+    import httpx
+    enabled = bool(payload.get("enabled", False))
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.post(f"{_LAB_URL}/api/demo-mode", json={"enabled": enabled})
+            if r.status_code == 200:
+                return r.json()
+    except Exception as e:
+        logger.error("Failed to toggle lab demo-mode: %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to communicate with Vulnerable Lab at {_LAB_URL}: {str(e)}"
+        )
+
+    return {"enabled": enabled, "status": "error"}
+
+
+@app.post("/api/lab/demo-mode/reset")
+async def reset_lab_demo_mode():
+    """
+    Proxy POST /api/demo-mode/reset to Vulnerable Lab.
+    Resets the demo session counters and flushes queued telemetry buffer.
+    """
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.post(f"{_LAB_URL}/api/demo-mode/reset")
+            if r.status_code == 200:
+                return r.json()
+    except Exception as e:
+        logger.error("Failed to reset lab demo-mode: %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to communicate with Vulnerable Lab at {_LAB_URL}: {str(e)}"
+        )
+
+    return {"status": "error"}
 
 
 @app.post("/api/lab/attack")

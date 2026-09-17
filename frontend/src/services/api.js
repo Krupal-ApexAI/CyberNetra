@@ -573,6 +573,61 @@ export async function fetchLabEvents(limit = 50) {
 }
 
 /**
+ * Fetch current Demo Mode state of the Vulnerable Lab via backend proxy.
+ * GET /api/lab/demo-mode
+ */
+export async function fetchLabDemoMode() {
+  try {
+    const res = await fetch(`${API_BASE}/api/lab/demo-mode`);
+    if (!res.ok) throw new Error("Failed to fetch lab demo mode status");
+    return await res.json();
+  } catch (err) {
+    console.warn("Lab demo mode unavailable:", err);
+    return {
+      enabled: false,
+      cybernetra_connected: false,
+      telemetry_status: "OFFLINE",
+      events_sent: 0,
+      events_queued: 0,
+    };
+  }
+}
+
+/**
+ * Toggle Demo Mode ON/OFF for the Vulnerable Lab via backend proxy.
+ * POST /api/lab/demo-mode
+ * @param {boolean} enabled
+ */
+export async function toggleLabDemoMode(enabled) {
+  const res = await fetch(`${API_BASE}/api/lab/demo-mode`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Toggle demo mode failed (${res.status})`);
+  }
+  return await res.json();
+}
+
+/**
+ * Reset Demo Mode session counters and queue on the Vulnerable Lab.
+ * POST /api/lab/demo-mode/reset
+ */
+export async function resetLabDemoMode() {
+  const res = await fetch(`${API_BASE}/api/lab/demo-mode/reset`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `Reset demo mode failed (${res.status})`);
+  }
+  return await res.json();
+}
+
+/**
  * Fetch real-time network flow statistics (Total Flows, Threats, Suspicious, Normal)
  * GET /api/network-stats
  */

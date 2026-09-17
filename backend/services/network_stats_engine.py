@@ -107,14 +107,23 @@ class NetworkStatsEngine:
         # Telemetry queue for background ML processing
         self._pending_telemetry: deque = deque(maxlen=200)
 
+        # Dynamic alerts ring buffer for live lab ingest
+        self.dynamic_alerts: deque = deque(maxlen=25)
+
+        # Telemetry ingestion counter specifically from Vulnerable Lab
+        self.lab_events_ingested: int = 0
+
         # Track last analysis timestamp
         self.last_analysis_time = time.time()
         self.total_ml_inferences = 0
 
-    def ingest_lab_event(self, entry: Dict[str, Any], ml_prediction: Optional[Dict[str, Any]] = None):
+    def ingest_lab_event(self, entry: Dict[str, Any], ml_prediction: Optional[Dict[str, Any]] = None, is_lab: bool = False):
         """
         Record a live event received from the Vulnerable Lab and update statistics.
         """
+        if is_lab:
+            self.lab_events_ingested += 1
+
         now = datetime.now(timezone.utc)
         time_str = now.strftime("%H:%M:%S")
 
@@ -201,6 +210,34 @@ class NetworkStatsEngine:
         self.live_feeds.appendleft(feed_item)
         self._update_traffic_series(status)
 
+        # Generate dynamic alert for security dashboard
+        if status in ("Malicious", "Suspicious"):
+            mitre_id = entry.get("mitre_technique") or entry.get("mitre_id")
+            if not mitre_id:
+                if attack_type == "Exploits":
+                    mitre_id = "T1190"
+                elif attack_type == "BruteForce":
+                    mitre_id = "T1110"
+                elif attack_type == "DoS":
+                    mitre_id = "T1498"
+                elif attack_type == "Reconnaissance":
+                    mitre_id = "T1595"
+                else:
+                    mitre_id = "T1059"
+
+            severity = "CRITICAL" if (status == "Malicious" and attack_type in ("Exploits", "DoS", "BruteForce")) else ("HIGH" if status == "Malicious" else "MEDIUM")
+            alert_id = f"ALT-LAB-{int(time.time() * 1000) % 1000000}"
+
+            alert = {
+                "id": alert_id,
+                "timestamp": time_str,
+                "severity": severity,
+                "title": f"Live Lab Threat: {attack_type} Detected",
+                "message": f"Detected {attack_type} ({confidence} confidence) from {src} targeting {indicator[:60]}.",
+                "mitre_id": mitre_id
+            }
+            self.dynamic_alerts.appendleft(alert)
+
     def _update_traffic_series(self, new_status: str, scenario: str = "normal"):
         """Update recent time series bucket with new event count (true throughput window)."""
         now_bucket = datetime.now().strftime("%H:%M")
@@ -285,7 +322,8 @@ class NetworkStatsEngine:
             "risk_score": risk_score,
             "risk_level": risk_level,
             "scenario": scenario,
-            "trends": trends
+            "trends": trends,
+            "lab_events_ingested": self.lab_events_ingested,
         }
 
     def get_live_ml_analysis(self) -> Dict[str, Any]:
