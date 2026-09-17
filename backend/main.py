@@ -1144,6 +1144,9 @@ async def _continuous_ml_worker():
                 is_attack_expected = False
 
             now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            event_type_str = "attack" if is_attack_expected else ("suspicious" if tmpl.get("path") in ("PORT_SCAN", "RECON") else "normal")
+            status_code = 401 if (tmpl.get("failed_attempts") or tmpl.get("path") == "/auth/login") else 200
+
             parsed_event = {
                 "timestamp": now_iso,
                 "src_ip": tmpl["src"],
@@ -1154,6 +1157,12 @@ async def _continuous_ml_worker():
                 "duration": tmpl["dur"],
                 "sbytes": tmpl["sbytes"],
                 "dbytes": tmpl["dbytes"],
+                "bytes_sent": tmpl["sbytes"],
+                "bytes_received": tmpl["dbytes"],
+                "method": tmpl.get("method"),
+                "path": tmpl.get("path"),
+                "event_type": event_type_str,
+                "status_code": status_code,
                 "repeated_connections": tmpl.get("failed_attempts", 1),
             }
 
@@ -1168,11 +1177,11 @@ async def _continuous_ml_worker():
                 "client_ip": tmpl["src"],
                 "method": tmpl.get("method", "GET"),
                 "path": tmpl.get("path", "/"),
-                "bytes_received": tmpl["sbytes"],
-                "bytes_sent": tmpl["dbytes"],
-                "event_type": "attack" if is_attack_expected else "normal",
+                "bytes_sent": tmpl["sbytes"],
+                "bytes_received": tmpl["dbytes"],
+                "event_type": event_type_str,
                 "indicator": f"{tmpl.get('method', 'GET')} {tmpl.get('path', '/')}",
-                "status_code": 401 if (tmpl.get("failed_attempts") or tmpl.get("path") == "/auth/login") else 200,
+                "status_code": status_code,
             }
 
             network_stats_engine.ingest_lab_event(entry, pred)
