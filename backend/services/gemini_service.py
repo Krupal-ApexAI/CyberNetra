@@ -143,23 +143,33 @@ def _parse_gemini_response(response_text: str) -> Optional[Dict[str, Any]]:
     Parse and validate Gemini's JSON response.
     Handles markdown code fences and malformed JSON gracefully.
     """
+    import re
     text = response_text.strip()
 
     # Strip markdown code fences if present
     if text.startswith("```"):
         lines = text.split("\n")
-        # Remove first and last fence lines
         if lines[0].startswith("```"):
             lines = lines[1:]
         if lines and lines[-1].strip() == "```":
             lines = lines[:-1]
         text = "\n".join(lines).strip()
 
+    parsed = None
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError:
-        logger.warning("Gemini response was not valid JSON: %s", text[:200])
-        return None
+        # Fallback: extract the JSON object {...} via regex
+        match = re.search(r"(\{.*\})", text, re.DOTALL)
+        if match:
+            try:
+                parsed = json.loads(match.group(1))
+            except json.JSONDecodeError:
+                logger.warning("Gemini response was not valid JSON: %s", text[:200])
+                return None
+        else:
+            logger.warning("Gemini response was not valid JSON: %s", text[:200])
+            return None
 
     # Validate required fields
     required_fields = [
@@ -207,6 +217,7 @@ async def get_gemini_explanation(
         Dict with explanation fields + ai_explanation_available flag.
         If Gemini fails, returns fallback with ai_explanation_available=False.
     """
+    import asyncio
     api_key = _get_api_key()
 
     if not api_key:
@@ -227,15 +238,17 @@ async def get_gemini_explanation(
         genai.configure(api_key=api_key)
 
         model = genai.GenerativeModel(
-            "gemini-2.0-flash",
+            "gemini-2.5-flash",
             system_instruction=SYSTEM_PROMPT,
         )
 
-        response = model.generate_content(
+        response = await asyncio.to_thread(
+            model.generate_content,
             f"Analyze this network security incident and provide your assessment:\n\n{context_str}",
             generation_config=genai.GenerationConfig(
                 temperature=0.3,
-                max_output_tokens=1024,
+                max_output_tokens=2048,
+                response_mime_type="application/json",
             ),
         )
 

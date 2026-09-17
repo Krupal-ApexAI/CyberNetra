@@ -22,7 +22,12 @@ import {
   ExternalLink,
   Loader2,
   Server,
-  ArrowUpRight
+  ArrowUpRight,
+  Sparkles,
+  Cpu,
+  ShieldAlert,
+  ListChecks,
+  FileText
 } from 'lucide-react';
 
 import {
@@ -133,6 +138,7 @@ export default function VulnerableLab() {
   const [attackStates, setAttackStates] = useState({});
   const [attackResults, setAttackResults] = useState({});
   const [expandedAttack, setExpandedAttack] = useState(null);
+  const [showRawPayload, setShowRawPayload] = useState({});
   const [refreshing, setRefreshing] = useState(false);
 
   // Fetch lab status
@@ -415,25 +421,206 @@ export default function VulnerableLab() {
                       </div>
                     </div>
 
+                    {/* Expanded loading state */}
+                    {isExpanded && state === 'loading' && (
+                      <div className="px-4 py-5 border-t border-slate-100/80 bg-slate-50/50 flex flex-col items-center justify-center text-center space-y-2 rounded-b-lg">
+                        <div className="flex items-center gap-2 text-indigo-600 font-semibold text-xs animate-pulse">
+                          <Sparkles className="w-4 h-4 animate-spin text-indigo-500" />
+                          <span>Simulating Attack & Generating AI Threat Assessment...</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          Intercepting telemetry → UNSW-NB15 ML Model Inference → Gemini 2.5 Security Analysis
+                        </p>
+                      </div>
+                    )}
+
                     {/* Expanded result */}
                     {isExpanded && result && (
-                      <div className="px-4 pb-3 border-t border-slate-100">
+                      <div className="px-4 pb-4 border-t border-slate-100/80 bg-slate-50/40 rounded-b-lg">
                         {result.success ? (
-                          <div className="mt-3 space-y-2">
-                            <div className="flex items-center gap-2">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                              <span className="text-xs font-medium text-emerald-700">
-                                Attack executed — telemetry captured by CyberNetra
-                              </span>
+                          <div className="mt-3.5 space-y-3.5">
+                            {/* 1. ML Detection & Verdict Bar */}
+                            <div className="bg-white rounded-xl border border-slate-200/90 p-3.5 shadow-xs">
+                              <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-slate-100">
+                                <div className="flex items-center gap-2">
+                                  <span className="relative flex h-2.5 w-2.5">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+                                  </span>
+                                  <span className="text-xs font-bold tracking-tight text-rose-700 uppercase">
+                                    CyberNetra Intercept
+                                  </span>
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-semibold border border-rose-200">
+                                    ML Class: {result.data?.ml_prediction?.dominant_attack || 'Exploits'}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                                    (result.data?.ml_prediction?.risk_level === 'CRITICAL' || result.data?.ai_explanation?.risk_level === 'CRITICAL')
+                                      ? 'bg-rose-600 text-white shadow-xs'
+                                      : 'bg-amber-500 text-white shadow-xs'
+                                  }`}>
+                                    {result.data?.ai_explanation?.risk_level || result.data?.ml_prediction?.risk_level || 'HIGH'} RISK
+                                  </span>
+                                  <span className="text-[11px] font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/60">
+                                    {Math.round((result.data?.ml_prediction?.attack_confidence || result.data?.ml_prediction?.detection_confidence || 0.95) * 1000) / 10}% ML Confidence
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="mt-2.5 flex flex-wrap items-center justify-between text-[11px] text-slate-500 gap-2">
+                                <div className="flex items-center gap-1.5">
+                                  <Cpu className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                                  <span className="font-medium text-slate-700">Model Pipeline:</span>
+                                  <span className="font-mono text-[10px] text-slate-600">
+                                    {result.data?.ml_prediction?.model_pipeline || 'RandomForest (Binary) + XGBoost (UNSW-NB15)'}
+                                  </span>
+                                </div>
+                                {result.data?.lab_result?.endpoint && (
+                                  <div className="font-mono text-[10px] text-slate-600 bg-slate-50 px-2 py-0.5 rounded border border-slate-200/50">
+                                    {result.data.lab_result.endpoint}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Top Contributing Features */}
+                              {result.data?.ml_prediction?.important_features?.length > 0 && (
+                                <div className="mt-2.5 pt-2 border-t border-slate-100">
+                                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                                    Contributing Feature Weights (UNSW-NB15)
+                                  </p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {result.data.ml_prediction.important_features.slice(0, 6).map((feat, idx) => (
+                                      <span
+                                        key={idx}
+                                        className="text-[10px] px-2 py-0.5 rounded bg-slate-100/90 text-slate-700 border border-slate-200/70 font-mono"
+                                      >
+                                        <span className="text-slate-500">{feat.feature}:</span> {feat.value}
+                                        {feat.importance ? ` (${(feat.importance * 100).toFixed(1)}%)` : ''}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                            <pre className="text-[10px] bg-slate-50 border border-slate-200 rounded-lg p-3 max-h-48 overflow-auto text-slate-600 font-mono leading-relaxed">
-                              {JSON.stringify(result.data, null, 2)}
-                            </pre>
+
+                            {/* 2. Gemini AI Security Analyst Brief */}
+                            <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 text-white rounded-xl p-4 shadow-md border border-indigo-900/40">
+                              <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-white/10">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-cyan-400 via-indigo-400 to-fuchsia-400 p-[1px]">
+                                    <div className="w-full h-full bg-slate-950 rounded-[7px] flex items-center justify-center">
+                                      <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
+                                    </div>
+                                  </div>
+                                  <h3 className="text-xs font-bold tracking-tight text-white flex items-center gap-1.5">
+                                    Gemini AI Security Analyst Brief
+                                    <span className="text-[9px] font-normal px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                                      gemini-2.5-flash
+                                    </span>
+                                  </h3>
+                                </div>
+                                <span className="text-[10px] text-indigo-200/70 font-mono">
+                                  Autonomous XAI Reasoning
+                                </span>
+                              </div>
+
+                              {/* Executive Summary */}
+                              {result.data?.ai_explanation?.summary && (
+                                <div className="bg-indigo-900/30 border border-indigo-500/30 rounded-lg p-2.5 text-xs text-indigo-100 font-medium leading-relaxed mb-3">
+                                  {result.data.ai_explanation.summary}
+                                </div>
+                              )}
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                                {/* Why Detected */}
+                                {result.data?.ai_explanation?.why_detected?.length > 0 && (
+                                  <div className="bg-white/5 rounded-lg p-2.5 border border-white/5">
+                                    <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1 mb-1.5">
+                                      <ShieldAlert className="w-3 h-3 text-cyan-400 shrink-0" />
+                                      Why Detected
+                                    </p>
+                                    <ul className="space-y-1.5 text-[11px] text-slate-300 leading-snug">
+                                      {result.data.ai_explanation.why_detected.map((reason, idx) => (
+                                        <li key={idx} className="flex items-start gap-1.5">
+                                          <span className="text-cyan-400 mt-0.5">•</span>
+                                          <span>{reason}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+
+                                {/* Key Evidence */}
+                                {result.data?.ai_explanation?.evidence?.length > 0 && (
+                                  <div className="bg-white/5 rounded-lg p-2.5 border border-white/5">
+                                    <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1 mb-1.5">
+                                      <FileText className="w-3 h-3 text-amber-400 shrink-0" />
+                                      Observed Evidence
+                                    </p>
+                                    <ul className="space-y-1.5 text-[11px] text-slate-300 leading-snug">
+                                      {result.data.ai_explanation.evidence.map((ev, idx) => (
+                                        <li key={idx} className="flex items-start gap-1.5">
+                                          <span className="text-amber-400 mt-0.5">•</span>
+                                          <span className="font-mono text-[10px]">{ev}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Recommended Containment Playbook */}
+                              {result.data?.ai_explanation?.recommended_actions?.length > 0 && (
+                                <div className="bg-white/5 rounded-lg p-2.5 border border-white/5 mb-3">
+                                  <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1 mb-1.5">
+                                    <ListChecks className="w-3 h-3 text-emerald-400 shrink-0" />
+                                    Recommended Containment Playbook
+                                  </p>
+                                  <div className="space-y-1.5 text-[11px] text-slate-300">
+                                    {result.data.ai_explanation.recommended_actions.map((act, idx) => (
+                                      <div key={idx} className="flex items-start gap-2">
+                                        <span className="shrink-0 w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[9px] font-bold flex items-center justify-center mt-0.5">
+                                          {idx + 1}
+                                        </span>
+                                        <span className="leading-snug">{act}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Analyst Note */}
+                              {result.data?.ai_explanation?.analyst_note && (
+                                <div className="pt-2.5 border-t border-white/10 text-[11px] text-slate-300 italic leading-relaxed">
+                                  <span className="font-semibold text-slate-200 not-italic">SOC Analyst Note: </span>
+                                  {result.data.ai_explanation.analyst_note}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* 3. Raw Payload Toggle */}
+                            <div>
+                              <button
+                                type="button"
+                                onClick={() => setShowRawPayload(p => ({ ...p, [attack.id]: !p[attack.id] }))}
+                                className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                              >
+                                <span>{showRawPayload[attack.id] ? 'Hide' : 'View'} Raw Telemetry & JSON Response</span>
+                                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showRawPayload[attack.id] ? 'rotate-180' : ''}`} />
+                              </button>
+
+                              {showRawPayload[attack.id] && (
+                                <pre className="mt-2 text-[10px] bg-slate-900 text-slate-200 border border-slate-800 rounded-lg p-3 max-h-56 overflow-auto font-mono leading-relaxed shadow-inner">
+                                  {JSON.stringify(result.data, null, 2)}
+                                </pre>
+                              )}
+                            </div>
                           </div>
                         ) : (
-                          <div className="mt-3 flex items-center gap-2">
-                            <XCircle className="w-3.5 h-3.5 text-red-500" />
-                            <span className="text-xs text-red-600">{result.error}</span>
+                          <div className="mt-3 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <XCircle className="w-4 h-4 text-red-500 shrink-0" />
+                            <span className="text-xs text-red-700 font-medium">{result.error}</span>
                           </div>
                         )}
                       </div>
