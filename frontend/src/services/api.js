@@ -268,9 +268,12 @@ export async function fetchForecast(scenario = activeLocalScenario) {
   }
 }
 
-export async function fetchExplainability(scenario = activeLocalScenario) {
+export async function fetchExplainability(threatId = null, scenario = activeLocalScenario) {
   try {
-    const res = await fetch(`${API_BASE}/api/explainability`, { signal: AbortSignal.timeout(2500) });
+    const url = threatId 
+      ? `${API_BASE}/api/explainability?threat_id=${encodeURIComponent(threatId)}`
+      : `${API_BASE}/api/explainability`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(2500) });
     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
     const data = await res.json();
     return { data, isLive: true };
@@ -279,6 +282,7 @@ export async function fetchExplainability(scenario = activeLocalScenario) {
     return { data: FALLBACK_DATA.explainability[scenario] || FALLBACK_DATA.explainability.normal, isLive: false };
   }
 }
+
 
 export async function fetchAlerts(scenario = activeLocalScenario) {
   try {
@@ -677,4 +681,69 @@ export async function fetchLiveMLAnalysis() {
     return null;
   }
 }
+
+/**
+ * Fetch dynamic threats aggregated from Vulnerable Lab events
+ * GET /api/threats
+ */
+export async function fetchThreats() {
+  try {
+    const res = await fetch(`${API_BASE}/api/threats`, { signal: AbortSignal.timeout(2500) });
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    const data = await res.json();
+    return { data: data.threats || [], count: data.count || 0, source: data.source, isLive: true };
+  } catch (err) {
+    console.warn("fetchThreats fallback:", err.message);
+    return { data: [], count: 0, source: "offline", isLive: false };
+  }
+}
+
+/**
+ * Fetch chronological kill-chain attack timeline
+ * GET /api/timeline
+ */
+export async function fetchTimeline() {
+  try {
+    const res = await fetch(`${API_BASE}/api/timeline`, { signal: AbortSignal.timeout(2500) });
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    const data = await res.json();
+    return { data: data.events || [], count: data.count || 0, source: data.source, isLive: true };
+  } catch (err) {
+    console.warn("fetchTimeline fallback:", err.message);
+    return { data: [], count: 0, source: "offline", isLive: false };
+  }
+}
+
+/**
+ * Fetch MITRE ATT&CK tactics with live hit counts
+ * GET /api/mitre
+ */
+export async function fetchMitre() {
+  try {
+    const res = await fetch(`${API_BASE}/api/mitre`, { signal: AbortSignal.timeout(2500) });
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    const data = await res.json();
+    return { data: data.tactics || [], totalHits: data.total_hits || 0, activeTechniques: data.active_techniques || 0, isLive: true };
+  } catch (err) {
+    console.warn("fetchMitre fallback:", err.message);
+    return { data: [], totalHits: 0, activeTechniques: 0, isLive: false };
+  }
+}
+
+/**
+ * Fetch session-generated security audit reports
+ * GET /api/reports
+ */
+export async function fetchReports() {
+  try {
+    const res = await fetch(`${API_BASE}/api/reports`, { signal: AbortSignal.timeout(2500) });
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    const data = await res.json();
+    return { data: data.reports || [], count: data.count || 0, isLive: true };
+  } catch (err) {
+    console.warn("fetchReports fallback:", err.message);
+    return { data: [], count: 0, isLive: false };
+  }
+}
+
 

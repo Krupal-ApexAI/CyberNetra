@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -8,9 +8,11 @@ import {
   Tooltip,
   CartesianGrid
 } from 'recharts';
+import { fetchLiveMLAnalysis } from '../services/api';
+import { Activity } from 'lucide-react';
 
 export default function TrafficChart() {
-  const data = [
+  const defaultData = [
     { time: '10:00', normal: 1100, suspicious: 180, malicious: 20 },
     { time: '10:10', normal: 1150, suspicious: 220, malicious: 30 },
     { time: '10:20', normal: 1050, suspicious: 260, malicious: 45 },
@@ -21,13 +23,50 @@ export default function TrafficChart() {
     { time: '11:00', normal: 1140, suspicious: 210, malicious: 60 }
   ];
 
+  const [data, setData] = useState(defaultData);
+  const [isLive, setIsLive] = useState(false);
+  const [totalMalicious, setTotalMalicious] = useState(0);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const poll = async () => {
+      try {
+        const res = await fetchLiveMLAnalysis();
+        if (!isMounted) return;
+
+        if (res && res.traffic_series && res.traffic_series.length > 0) {
+          setData(res.traffic_series);
+          setIsLive(true);
+          const currentMalicious = res.traffic_series.reduce((sum, item) => sum + (item.malicious || 0), 0);
+          setTotalMalicious(currentMalicious);
+        }
+      } catch (err) {
+        // keep existing data
+      }
+    };
+
+    poll();
+    const interval = setInterval(poll, 2500);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
   return (
     <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-xs flex flex-col h-full">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
-        <h3 className="text-sm font-bold text-slate-900 font-sans tracking-tight">
-          Network Traffic
-        </h3>
+        <div className="flex items-center gap-2.5">
+          <h3 className="text-sm font-bold text-slate-900 font-sans tracking-tight">
+            Network Traffic Telemetry
+          </h3>
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            {isLive ? 'REAL-TIME STREAM' : 'SIMULATED'}
+          </span>
+        </div>
 
         {/* Legend */}
         <div className="flex items-center gap-4 text-xs font-medium">
@@ -59,61 +98,82 @@ export default function TrafficChart() {
                 <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
                 <stop offset="95%" stopColor="#ef4444" stopOpacity={0.0} />
               </linearGradient>
+              <linearGradient id="colorSuspicious" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.25} />
+                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
+              </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+
             <XAxis
               dataKey="time"
-              stroke="#94a3b8"
-              tick={{ fontSize: 11, fill: '#64748b' }}
+              axisLine={{ stroke: '#f1f5f9' }}
               tickLine={false}
-              axisLine={{ stroke: '#e2e8f0' }}
+              tick={{ fill: '#64748b', fontSize: 11 }}
             />
+
             <YAxis
-              stroke="#94a3b8"
-              tick={{ fontSize: 11, fill: '#64748b' }}
-              tickLine={false}
               axisLine={false}
-              domain={[0, 2000]}
-              ticks={[0, 500, 1000, 1500, 2000]}
+              tickLine={false}
+              tick={{ fill: '#64748b', fontSize: 11 }}
             />
+
             <Tooltip
               contentStyle={{
                 backgroundColor: '#ffffff',
                 borderColor: '#e2e8f0',
                 borderRadius: '0.5rem',
                 fontSize: '12px',
-                color: '#0f172a',
-                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                color: '#0f172a'
               }}
             />
+
             <Area
               type="monotone"
               dataKey="normal"
-              name="Normal Traffic"
               stroke="#3b82f6"
               strokeWidth={2}
               fillOpacity={1}
               fill="url(#colorNormal)"
+              name="Normal Traffic"
             />
+
             <Area
               type="monotone"
               dataKey="suspicious"
-              name="Suspicious Traffic"
               stroke="#f59e0b"
               strokeWidth={1.5}
-              fill="none"
+              fillOpacity={1}
+              fill="url(#colorSuspicious)"
+              name="Suspicious Probes"
             />
+
             <Area
               type="monotone"
               dataKey="malicious"
-              name="Malicious Traffic"
               stroke="#ef4444"
-              strokeWidth={2.5}
+              strokeWidth={2}
               fillOpacity={1}
               fill="url(#colorMalicious)"
+              name="Malicious Ingress"
             />
           </AreaChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Real-time Telemetry footer */}
+      <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+        <span className="flex items-center gap-1.5">
+          <Activity className="w-3.5 h-3.5 text-blue-500" />
+          Rolling 12-minute time window • 2-minute bucket aggregation
+        </span>
+        {totalMalicious > 0 && (
+          <span className="font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-200">
+            {totalMalicious} Malicious Flows in Window
+          </span>
+        )}
       </div>
     </div>
   );
