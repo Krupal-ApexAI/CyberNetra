@@ -15,7 +15,7 @@ except ImportError:
 
 import json
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 # pyrefly: ignore [missing-import]
 from fastapi import FastAPI, HTTPException
 # pyrefly: ignore [missing-import]
@@ -185,7 +185,28 @@ def get_forecast():
     )
 
 @app.get("/api/explainability", response_model=ExplainabilityResponse)
-def get_explainability():
+def get_explainability(threat_id: Optional[str] = None):
+    # Check if there are active attacks in the Vulnerable Lab buffer
+    lab_attacks = [e for e in _lab_event_buffer if e.get("raw", {}).get("event_type", "normal") not in ("normal", "")]
+    if lab_attacks:
+        # If threat_id specified, find matching attack type
+        target_attack = lab_attacks[-1]
+        target_type = target_attack.get("raw", {}).get("event_type", "dos_attack")
+        if threat_id:
+            for e in reversed(lab_attacks):
+                etype = e.get("raw", {}).get("event_type", "")
+                if etype in threat_id.lower() or threat_id.lower() in etype:
+                    target_type = etype
+                    break
+
+        matching_events = [e for e in lab_attacks if e.get("raw", {}).get("event_type") == target_type]
+        res = explainability_engine.generate_lab_explanation(
+            target_type,
+            matching_events if matching_events else [target_attack],
+            list(network_stats_engine.dynamic_alerts)
+        )
+        return ExplainabilityResponse(**res)
+
     records = load_scenario_data(CURRENT_SCENARIO)
     summary = traffic_analyzer.analyze_records(records)
     threat = threat_detector.detect_threat(summary, CURRENT_SCENARIO)
@@ -1088,6 +1109,491 @@ async def get_lab_events(limit: int = 50):
 
 
 # ──────────────────────────────────────────────
+# Dynamic Lab-Driven Feature Endpoints
+# ──────────────────────────────────────────────
+
+# MITRE technique mapping for lab event types
+_EVENT_TYPE_MITRE = {
+    "sqli_attack": {"id": "T1190", "name": "Exploit Public-Facing Application", "tactic": "Initial Access (TA0001)"},
+    "xss_attack": {"id": "T1059.007", "name": "JavaScript Execution", "tactic": "Execution (TA0002)"},
+    "traversal_attack": {"id": "T1083", "name": "File and Directory Discovery", "tactic": "Discovery (TA0007)"},
+    "cmdi_attack": {"id": "T1059", "name": "Command and Scripting Interpreter", "tactic": "Execution (TA0002)"},
+    "brute_force_attack": {"id": "T1110", "name": "Brute Force", "tactic": "Credential Access (TA0006)"},
+    "dos_attack": {"id": "T1498", "name": "Network Denial of Service", "tactic": "Impact (TA0040)"},
+}
+
+_EVENT_TYPE_DISPLAY = {
+    "sqli_attack": {"name": "SQL Injection", "severity": "Critical", "actions": [
+        "Sanitize all user inputs with parameterized queries",
+        "Deploy a Web Application Firewall (WAF) rule for SQL patterns",
+        "Audit database access logs for unauthorized data exfiltration"
+    ]},
+    "xss_attack": {"name": "Cross-Site Scripting (XSS)", "severity": "High", "actions": [
+        "Implement Content Security Policy (CSP) headers",
+        "Sanitize and encode all user-generated output",
+        "Review reflected and stored input endpoints"
+    ]},
+    "traversal_attack": {"name": "Path Traversal", "severity": "High", "actions": [
+        "Restrict file access to a sandboxed directory",
+        "Validate and canonicalize all file path inputs",
+        "Monitor for ../../ pattern in web server logs"
+    ]},
+    "cmdi_attack": {"name": "Command Injection", "severity": "Critical", "actions": [
+        "Never pass user input directly to system shell commands",
+        "Use allowlists for permitted command arguments",
+        "Isolate the application in a sandboxed container"
+    ]},
+    "brute_force_attack": {"name": "Brute Force Attack", "severity": "High", "actions": [
+        "Implement account lockout after 5 failed attempts",
+        "Deploy CAPTCHA on authentication endpoints",
+        "Enable multi-factor authentication (MFA)"
+    ]},
+    "dos_attack": {"name": "Denial of Service (DoS)", "severity": "Critical", "actions": [
+        "Enable rate limiting on the target endpoint",
+        "Deploy upstream traffic scrubbing / CDN protection",
+        "Activate SYN cookies and connection pool limits"
+    ]},
+}
+
+
+@app.get("/api/threats")
+def get_threats():
+    """
+    Aggregate lab events and dynamic alerts into structured threat objects.
+    Each unique attack type from the Vulnerable Lab becomes a distinct threat.
+    """
+    from collections import defaultdict
+    now = datetime.now(timezone.utc)
+
+    # Group lab events by attack type (event_type)
+    attack_groups = defaultdict(list)
+    for buffered in _lab_event_buffer:
+        raw = buffered.get("raw", {})
+        event_type = raw.get("event_type", "normal").lower()
+        if event_type == "normal" or "normal" in event_type:
+            continue
+        attack_groups[event_type].append(buffered)
+
+    threats = []
+    for event_type, events in attack_groups.items():
+        display = _EVENT_TYPE_DISPLAY.get(event_type, {"name": event_type.replace("_", " ").title(), "severity": "Medium", "actions": ["Investigate the activity", "Review server logs"]})
+        mitre = _EVENT_TYPE_MITRE.get(event_type, {"id": "T1059", "name": "Unknown Technique", "tactic": "Execution (TA0002)"})
+
+        # Compute timestamps
+        timestamps = []
+        for e in events:
+            raw = e.get("raw", {})
+            ts = raw.get("timestamp") or e.get("ingested_at", "")
+            timestamps.append(ts)
+        timestamps = sorted([t for t in timestamps if t])
+
+        first_seen = timestamps[0] if timestamps else now.isoformat()
+        last_seen = timestamps[-1] if timestamps else now.isoformat()
+
+        # Extract source IPs
+        source_ips = set()
+        indicators = []
+        for e in events:
+            raw = e.get("raw", {})
+            source_ips.add(raw.get("client_ip", "127.0.0.1"))
+            ind = raw.get("indicator", "") or raw.get("path", "")
+            if ind and ind not in indicators:
+                indicators.append(ind)
+
+        # Get confidence from classification or default
+        classification = events[-1].get("classification", "Attack")
+        confidence = "97%"
+        for feed in network_stats_engine.live_feeds:
+            if feed.get("attack_type", "").lower() in event_type or event_type.replace("_attack", "") in feed.get("attack_type", "").lower():
+                confidence = feed.get("confidence", "97%")
+                break
+
+        # Build traffic pattern from events grouped by minute
+        traffic_pattern = []
+        minute_buckets = defaultdict(lambda: {"normal": 0, "attack": 0})
+        for e in events:
+            raw = e.get("raw", {})
+            ts = raw.get("timestamp", "")
+            if ts:
+                try:
+                    # Try to extract HH:MM
+                    minute_key = ts[11:16] if len(ts) > 16 else ts[:5]
+                except Exception:
+                    minute_key = "00:00"
+            else:
+                minute_key = now.strftime("%H:%M")
+            minute_buckets[minute_key]["attack"] += 1
+
+        for minute_key in sorted(minute_buckets.keys()):
+            traffic_pattern.append({
+                "time": minute_key,
+                "normal": random.randint(80, 160),
+                "attack": minute_buckets[minute_key]["attack"] * random.randint(40, 120)
+            })
+
+        # If no traffic pattern data, generate from event count
+        if not traffic_pattern:
+            now_min = now.strftime("%H:%M")
+            traffic_pattern = [{"time": now_min, "normal": 120, "attack": len(events) * 80}]
+
+        # Why was this detected?
+        why_detected = []
+        if "sqli" in event_type:
+            why_detected = ["SQL metacharacters detected in user input (OR 1=1, UNION SELECT)", "Request payload matches known SQL injection signatures", "Database query structure manipulation attempted", "UNSW-NB15 feature anomaly: elevated sbytes with SQL patterns"]
+        elif "xss" in event_type:
+            why_detected = ["JavaScript execution tags found in HTTP parameters (<script>)", "Reflected input detected in server response body", "Content-Type mismatch suggesting injection attempt", "Pattern matches stored/reflected XSS training signatures"]
+        elif "brute" in event_type:
+            why_detected = ["Rapid sequential authentication failures from single source", "Request velocity exceeds normal login frequency by 800%", "Credential dictionary attack pattern detected", "Multiple 401 Unauthorized responses in short time window"]
+        elif "dos" in event_type:
+            why_detected = ["Request rate exceeds server capacity threshold", "Connection pool saturation detected on target endpoint", "Volumetric traffic spike from single origin", "SYN/HTTP flood pattern matches UNSW-NB15 DoS signatures"]
+        elif "cmdi" in event_type:
+            why_detected = ["OS command metacharacters in request parameters (;, |, &&)", "Shell command execution pattern detected in user input", "Process spawning attempt through web application layer", "Matches command injection signatures from CIC-IDS2017"]
+        elif "traversal" in event_type:
+            why_detected = ["Directory traversal sequences detected (../../../)", "Attempted access to files outside web root directory", "Path canonicalization bypass attempt", "Sensitive file access pattern (passwd, shadow, config)"]
+        else:
+            why_detected = ["Anomalous traffic pattern detected by ML ensemble", "Feature distribution outside normal baseline", "Behavioral signature matches known attack vector"]
+
+        threat = {
+            "id": f"THR-LAB-{event_type.upper().replace('_', '-')[:12]}-{len(events):03d}",
+            "name": display["name"],
+            "type": event_type,
+            "severity": display["severity"],
+            "confidence": confidence,
+            "source_ip": ", ".join(list(source_ips)[:3]),
+            "dest_ip": "127.0.0.1:9000",
+            "first_seen": first_seen,
+            "last_seen": last_seen,
+            "duration": f"{len(events) * 2}s",
+            "event_count": len(events),
+            "indicator": indicators[-1] if indicators else event_type,
+            "mitre_id": mitre["id"],
+            "mitre_name": mitre["name"],
+            "mitre_tactic": mitre["tactic"],
+            "why_detected": why_detected,
+            "recommended_actions": display["actions"],
+            "traffic_pattern": traffic_pattern,
+            "classification": classification,
+        }
+        threats.append(threat)
+
+    # Sort by severity (Critical > High > Medium > Low)
+    severity_order = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
+    threats.sort(key=lambda t: severity_order.get(t["severity"], 4))
+
+    return {
+        "count": len(threats),
+        "threats": threats,
+        "source": "live_lab" if threats else "baseline",
+        "lab_events_total": len(_lab_event_buffer),
+    }
+
+
+@app.get("/api/timeline")
+def get_timeline():
+    """
+    Build a chronological kill-chain timeline from lab events and dynamic alerts.
+    Maps events into reconnaissance, exploitation, execution, and mitigation phases.
+    """
+    events_out = []
+    seen_phases = set()
+
+    # Phase mapping
+    phase_map = {
+        "normal": ("Monitoring", "Monitoring", "text-slate-700 bg-slate-50 border-slate-200"),
+        "sqli_attack": ("Exploitation", "SQL Injection Exploit", "text-red-700 bg-red-50 border-red-200"),
+        "xss_attack": ("Exploitation", "Cross-Site Scripting Exploit", "text-red-700 bg-red-50 border-red-200"),
+        "traversal_attack": ("Discovery", "Path Traversal Probe", "text-amber-700 bg-amber-50 border-amber-200"),
+        "cmdi_attack": ("Execution", "OS Command Execution", "text-red-700 bg-red-50 border-red-200"),
+        "brute_force_attack": ("Credential Access", "Brute Force Spray", "text-orange-700 bg-orange-50 border-orange-200"),
+        "dos_attack": ("Impact", "Denial of Service Flood", "text-red-700 bg-red-50 border-red-200"),
+    }
+
+    status_map = {
+        "Monitoring": "Active",
+        "Discovery": "Completed",
+        "Exploitation": "Active",
+        "Credential Access": "Active",
+        "Execution": "Active",
+        "Impact": "Active",
+    }
+
+    # Build events from lab buffer
+    for buffered in _lab_event_buffer:
+        raw = buffered.get("raw", {})
+        event_type = raw.get("event_type", "normal").lower()
+        if event_type == "normal":
+            continue
+
+        phase_info = phase_map.get(event_type, ("Unknown", event_type, "text-slate-700 bg-slate-50 border-slate-200"))
+        phase, title, color = phase_info
+
+        ts = raw.get("timestamp", "") or buffered.get("ingested_at", "")
+        # Extract time portion
+        time_str = ts[11:19] if len(ts) > 19 else ts[:8] if len(ts) >= 8 else "00:00:00"
+
+        mitre = _EVENT_TYPE_MITRE.get(event_type, {})
+        display = _EVENT_TYPE_DISPLAY.get(event_type, {"name": event_type})
+
+        src = raw.get("client_ip", "127.0.0.1")
+        path = raw.get("path", "/")
+        indicator = raw.get("indicator", "") or f"{raw.get('method', 'GET')} {path}"
+
+        desc = f"{display['name']} detected from {src} targeting {path}. {indicator[:80]}"
+
+        events_out.append({
+            "time": time_str,
+            "title": title,
+            "desc": desc,
+            "phase": phase,
+            "status": status_map.get(phase, "Active"),
+            "color": color,
+            "mitre_id": mitre.get("id", ""),
+            "source_ip": src,
+            "event_type": event_type,
+        })
+
+    # Add dynamic alerts as timeline events
+    for alert in network_stats_engine.dynamic_alerts:
+        mitre_id = alert.get("mitre_id", "")
+        severity = alert.get("severity", "MEDIUM")
+        color = "text-red-700 bg-red-50 border-red-200" if severity == "CRITICAL" else "text-amber-700 bg-amber-50 border-amber-200"
+
+        # Skip if we already have this event from the buffer
+        if any(e.get("time") == alert.get("timestamp") and e.get("mitre_id") == mitre_id for e in events_out):
+            continue
+
+        events_out.append({
+            "time": alert.get("timestamp", "00:00:00"),
+            "title": alert.get("title", "Security Alert"),
+            "desc": alert.get("message", ""),
+            "phase": "Detection",
+            "status": "Active" if severity in ("CRITICAL", "HIGH") else "Contained",
+            "color": color,
+            "mitre_id": mitre_id,
+            "source_ip": "",
+            "event_type": "alert",
+        })
+
+    # Sort by time
+    events_out.sort(key=lambda e: e.get("time", ""))
+
+    # If no lab events, provide baseline monitoring event
+    if not events_out:
+        events_out = [{
+            "time": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+            "title": "Baseline Network Monitoring Active",
+            "desc": "All telemetry streams within safe operational bounds. No threats detected. Vulnerable Lab connected and ready.",
+            "phase": "Monitoring",
+            "status": "Active",
+            "color": "text-emerald-700 bg-emerald-50 border-emerald-200",
+            "mitre_id": "",
+            "source_ip": "",
+            "event_type": "normal",
+        }]
+
+    return {
+        "count": len(events_out),
+        "events": events_out,
+        "source": "live_lab" if len(_lab_event_buffer) > 0 else "baseline",
+    }
+
+
+@app.get("/api/mitre")
+def get_mitre_live():
+    """
+    Return MITRE ATT&CK tactics and techniques with live hit counts from Vulnerable Lab events.
+    """
+    from collections import defaultdict
+
+    # Count technique hits from lab events
+    technique_hits = defaultdict(int)
+    for buffered in _lab_event_buffer:
+        raw = buffered.get("raw", {})
+        event_type = raw.get("event_type", "normal").lower()
+        mitre = _EVENT_TYPE_MITRE.get(event_type)
+        if mitre:
+            technique_hits[mitre["id"]] += 1
+
+    # Also count from dynamic alerts
+    for alert in network_stats_engine.dynamic_alerts:
+        mid = alert.get("mitre_id", "")
+        if mid:
+            technique_hits[mid] += 1
+
+    total_hits = sum(technique_hits.values())
+
+    # Full MITRE tactic structure with live status
+    tactics = [
+        {
+            "id": "TA0001", "name": "Initial Access",
+            "techniques": [
+                {"id": "T1566", "name": "Phishing", "active": technique_hits.get("T1566", 0) > 0, "hits": technique_hits.get("T1566", 0)},
+                {"id": "T1190", "name": "Exploit Public-Facing Application", "active": technique_hits.get("T1190", 0) > 0, "hits": technique_hits.get("T1190", 0)}
+            ]
+        },
+        {
+            "id": "TA0002", "name": "Execution",
+            "techniques": [
+                {"id": "T1059", "name": "Command \u0026 Scripting Interpreter", "active": technique_hits.get("T1059", 0) > 0, "hits": technique_hits.get("T1059", 0)},
+                {"id": "T1059.007", "name": "JavaScript (XSS)", "active": technique_hits.get("T1059.007", 0) > 0, "hits": technique_hits.get("T1059.007", 0)},
+                {"id": "T1204", "name": "User Execution", "active": False, "hits": 0}
+            ]
+        },
+        {
+            "id": "TA0004", "name": "Privilege Escalation",
+            "techniques": [
+                {"id": "T1134", "name": "Access Token Manipulation", "active": False, "hits": 0},
+                {"id": "T1068", "name": "Exploitation for PrivEsc", "active": False, "hits": 0}
+            ]
+        },
+        {
+            "id": "TA0006", "name": "Credential Access",
+            "techniques": [
+                {"id": "T1110", "name": "Brute Force", "active": technique_hits.get("T1110", 0) > 0, "hits": technique_hits.get("T1110", 0)},
+                {"id": "T1003", "name": "OS Credential Dumping", "active": False, "hits": 0}
+            ]
+        },
+        {
+            "id": "TA0007", "name": "Discovery",
+            "techniques": [
+                {"id": "T1083", "name": "File \u0026 Directory Discovery", "active": technique_hits.get("T1083", 0) > 0, "hits": technique_hits.get("T1083", 0)},
+                {"id": "T1046", "name": "Network Service Scan", "active": technique_hits.get("T1046", 0) > 0, "hits": technique_hits.get("T1046", 0)}
+            ]
+        },
+        {
+            "id": "TA0008", "name": "Lateral Movement",
+            "techniques": [
+                {"id": "T1021.002", "name": "SMB / Named Pipes", "active": False, "hits": 0},
+                {"id": "T1047", "name": "WMI Execution", "active": False, "hits": 0}
+            ]
+        },
+        {
+            "id": "TA0011", "name": "Command \u0026 Control",
+            "techniques": [
+                {"id": "T1071", "name": "Application Layer Protocol", "active": False, "hits": 0},
+                {"id": "T1573", "name": "Encrypted Channel", "active": False, "hits": 0}
+            ]
+        },
+        {
+            "id": "TA0040", "name": "Impact",
+            "techniques": [
+                {"id": "T1498", "name": "Network Denial of Service", "active": technique_hits.get("T1498", 0) > 0, "hits": technique_hits.get("T1498", 0)},
+                {"id": "T1486", "name": "Data Encrypted for Impact", "active": False, "hits": 0}
+            ]
+        }
+    ]
+
+    active_count = sum(1 for t in tactics for tech in t["techniques"] if tech["active"])
+
+    return {
+        "tactics": tactics,
+        "total_hits": total_hits,
+        "active_techniques": active_count,
+        "source": "live_lab" if total_hits > 0 else "baseline",
+    }
+
+
+@app.get("/api/reports")
+def get_reports():
+    """
+    Generate dynamic session reports from live telemetry data.
+    """
+    from collections import Counter
+    now = datetime.now(timezone.utc)
+
+    # Aggregate attack types
+    attack_counter = Counter()
+    total_events = len(_lab_event_buffer)
+    attack_events = 0
+    normal_events = 0
+
+    for buffered in _lab_event_buffer:
+        raw = buffered.get("raw", {})
+        event_type = raw.get("event_type", "normal").lower()
+        if event_type != "normal" and "normal" not in event_type:
+            attack_counter[event_type] += 1
+            attack_events += 1
+        else:
+            normal_events += 1
+
+    dominant = attack_counter.most_common(1)[0][0] if attack_counter else "None"
+    dominant_display = _EVENT_TYPE_DISPLAY.get(dominant, {}).get("name", dominant)
+
+    # Live session report
+    live_report = {
+        "id": f"REP-LIVE-{now.strftime('%Y%m%d')}-01",
+        "title": "Controlled Sandbox Forensic Audit & Telemetry Assessment",
+        "type": "Live Session Report",
+        "date": now.strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "classification": "RESTRICTED // SOC-LEVEL-3",
+        "summary": (
+            f"Live session forensic evaluation capturing {total_events} total telemetry events "
+            f"from the Controlled Vulnerable Lab. {attack_events} attack events detected across "
+            f"{len(attack_counter)} distinct attack categories. Dominant threat: {dominant_display}. "
+            f"ML pipeline processed all events through UNSW-NB15 Random Forest + XGBoost ensemble."
+        ),
+        "metrics": {
+            "threatLevel": "Critical" if attack_events > 20 else ("High" if attack_events > 5 else ("Medium" if attack_events > 0 else "Nominal")),
+            "levelColor": ("text-red-700 bg-red-50 border-red-200" if attack_events > 20
+                          else "text-amber-700 bg-amber-50 border-amber-200" if attack_events > 5
+                          else "text-emerald-700 bg-emerald-50 border-emerald-200"),
+            "flows": f"{attack_events} Anomalies",
+            "flowsColor": "text-slate-900 bg-slate-50 border-slate-200",
+            "mitigation": f"{attack_events} Detected & Classified" if attack_events > 0 else "All Systems Normal",
+            "mitColor": "text-emerald-700 bg-emerald-50 border-emerald-200",
+        },
+        "attack_breakdown": dict(attack_counter),
+        "is_live": True,
+    }
+
+    # Static historical reports (keep existing ones)
+    static_reports = [
+        {
+            "id": "REP-2026-0914-01",
+            "title": "Real-Time Incident Forensic Assessment & Threat Audit",
+            "type": "Executive Incident Briefing",
+            "date": "2026-09-14 14:35:00 UTC",
+            "classification": "RESTRICTED // SOC-LEVEL-3",
+            "summary": "Automated forensic telemetry evaluation for active threat incidents. Includes root cause timeline, affected IP inventory, and executed mitigation playbooks.",
+            "metrics": {
+                "threatLevel": "Critical",
+                "levelColor": "text-red-700 bg-red-50 border-red-200",
+                "flows": "1,420 Anomalies",
+                "flowsColor": "text-slate-900 bg-slate-50 border-slate-200",
+                "mitigation": "100% Contained",
+                "mitColor": "text-emerald-700 bg-emerald-50 border-emerald-200"
+            },
+            "is_live": False,
+        },
+        {
+            "id": "REP-2026-0914-02",
+            "title": "NTRO SIH26153 Model Precision & Latency Compliance Report",
+            "type": "AI Validation Audit",
+            "date": "2026-09-14 12:00:00 UTC",
+            "classification": "OFFICIAL // SIH26153",
+            "summary": "Comprehensive testing results across XGBoost, Random Forest, and Deep Sequence models on CIC-IDS2017 benchmark dataset. Precision: 98.6%, Average Inference Latency: 12.4ms.",
+            "metrics": {
+                "threatLevel": "Nominal",
+                "levelColor": "text-emerald-700 bg-emerald-50 border-emerald-200",
+                "flows": "0 Anomalies",
+                "flowsColor": "text-slate-900 bg-slate-50 border-slate-200",
+                "mitigation": "All Systems Normal",
+                "mitColor": "text-emerald-700 bg-emerald-50 border-emerald-200"
+            },
+            "is_live": False,
+        },
+    ]
+
+    # Put live report first, then static
+    all_reports = [live_report] + static_reports
+
+    return {
+        "count": len(all_reports),
+        "reports": all_reports,
+    }
+
+
+# ──────────────────────────────────────────────
 # New SOC Feature Endpoints
 # ──────────────────────────────────────────────
 
@@ -1107,7 +1613,7 @@ def get_system_health():
 
 @app.get("/api/network-graph")
 def get_network_graph():
-    """Returns topology nodes and links adapted to current scenario."""
+    """Returns topology nodes and links adapted to current scenario and live lab events."""
     nodes = [
         {"id": "gw-1", "name": "Edge Gateway Router", "ip": "192.168.1.1", "type": "gateway", "status": "normal", "val": 18, "color": "#06b6d4"},
         {"id": "srv-web1", "name": "Web Server Primary", "ip": "192.168.1.10", "type": "server", "status": "target" if CURRENT_SCENARIO == "ddos" else "normal", "val": 15, "color": "#f43f5e" if CURRENT_SCENARIO == "ddos" else "#10b981"},
@@ -1138,7 +1644,59 @@ def get_network_graph():
         {"source": "ext-scan", "target": "gw-1", "color": "#f59e0b" if CURRENT_SCENARIO == "suspicious" else "#1e293b", "width": 2.5 if CURRENT_SCENARIO == "suspicious" else 0}
     ]
 
-    return {"scenario": CURRENT_SCENARIO, "nodes": nodes, "links": links}
+    # Dynamically inject Vulnerable Lab node & recent attack sources
+    lab_attacks = [e for e in _lab_event_buffer if e.get("raw", {}).get("event_type", "normal") not in ("normal", "")]
+    lab_status = "target" if lab_attacks else "normal"
+    lab_color = "#f43f5e" if lab_attacks else "#10b981"
+    
+    nodes.append({
+        "id": "srv-vulnlab",
+        "name": "Controlled Vulnerable Lab Target",
+        "ip": "127.0.0.1:9000",
+        "type": "server",
+        "status": lab_status,
+        "val": 16,
+        "color": lab_color
+    })
+    links.append({
+        "source": "gw-1",
+        "target": "srv-vulnlab",
+        "color": "#f43f5e" if lab_attacks else "#334155",
+        "width": 3 if lab_attacks else 1
+    })
+
+    # Add distinct attack origin nodes from lab
+    seen_ips = set()
+    for e in lab_attacks[-6:]:
+        cip = e.get("raw", {}).get("client_ip", "127.0.0.1")
+        etype = e.get("raw", {}).get("event_type", "attack")
+        if cip and cip not in seen_ips and cip != "127.0.0.1":
+            seen_ips.add(cip)
+            node_id = f"lab-att-{cip.replace('.', '-')}"
+            nodes.append({
+                "id": node_id,
+                "name": f"Lab Attacker ({etype.replace('_attack', '').upper()})",
+                "ip": cip,
+                "type": "attacker",
+                "status": "attacker",
+                "val": 13,
+                "color": "#e11d48"
+            })
+            links.append({
+                "source": node_id,
+                "target": "srv-vulnlab",
+                "color": "#f43f5e",
+                "width": 2.5
+            })
+
+    return {
+        "scenario": CURRENT_SCENARIO,
+        "nodes": nodes,
+        "links": links,
+        "lab_active": len(lab_attacks) > 0,
+        "lab_attacks_count": len(lab_attacks)
+    }
+
 
 @app.get("/api/search")
 def search_network_entities(q: str = ""):
@@ -1240,6 +1798,9 @@ async def _continuous_ml_worker():
                 is_attack_expected = False
 
             now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            event_type_str = "attack" if is_attack_expected else ("suspicious" if tmpl.get("path") in ("PORT_SCAN", "RECON") else "normal")
+            status_code = 401 if (tmpl.get("failed_attempts") or tmpl.get("path") == "/auth/login") else 200
+
             parsed_event = {
                 "timestamp": now_iso,
                 "src_ip": tmpl["src"],
@@ -1250,6 +1811,12 @@ async def _continuous_ml_worker():
                 "duration": tmpl["dur"],
                 "sbytes": tmpl["sbytes"],
                 "dbytes": tmpl["dbytes"],
+                "bytes_sent": tmpl["sbytes"],
+                "bytes_received": tmpl["dbytes"],
+                "method": tmpl.get("method"),
+                "path": tmpl.get("path"),
+                "event_type": event_type_str,
+                "status_code": status_code,
                 "repeated_connections": tmpl.get("failed_attempts", 1),
             }
 
@@ -1264,11 +1831,11 @@ async def _continuous_ml_worker():
                 "client_ip": tmpl["src"],
                 "method": tmpl.get("method", "GET"),
                 "path": tmpl.get("path", "/"),
-                "bytes_received": tmpl["sbytes"],
-                "bytes_sent": tmpl["dbytes"],
-                "event_type": "attack" if is_attack_expected else "normal",
+                "bytes_sent": tmpl["sbytes"],
+                "bytes_received": tmpl["dbytes"],
+                "event_type": event_type_str,
                 "indicator": f"{tmpl.get('method', 'GET')} {tmpl.get('path', '/')}",
-                "status_code": 401 if (tmpl.get("failed_attempts") or tmpl.get("path") == "/auth/login") else 200,
+                "status_code": status_code,
             }
 
             network_stats_engine.ingest_lab_event(entry, pred)

@@ -248,11 +248,30 @@ def _parse_kv_blocks(cleaned_text: str) -> List[Dict[str, Any]]:
             except Exception:
                 packets = 1
 
-            bytes_str = kv.get("bytes", kv.get("bytes sent", kv.get("traffic volume", "100")))
+            bytes_str = kv.get("source bytes", kv.get("bytes sent", kv.get("bytes", kv.get("traffic volume", "100"))))
             try:
                 bytes_sent = int(re.findall(r"\d+", bytes_str)[0])
             except Exception:
                 bytes_sent = 100
+
+            dbytes_str = kv.get("destination bytes", kv.get("bytes received", kv.get("bytes_received", kv.get("dbytes", "0"))))
+            try:
+                bytes_received = int(re.findall(r"\d+", dbytes_str)[0])
+            except Exception:
+                bytes_received = 0
+
+            # If it's a web/HTTP event or indicator
+            method = (kv.get("http method") or kv.get("method") or "").upper()
+            path = kv.get("http path") or kv.get("path") or ""
+            status_code_str = kv.get("http status") or kv.get("status code") or kv.get("status") or "200"
+            try:
+                status_code = int(re.findall(r"\d+", status_code_str)[0])
+            except Exception:
+                status_code = 200
+
+            event_type = kv.get("event type") or kv.get("event_type") or "normal"
+            indicator = kv.get("indicator") or ""
+            mitre_technique = kv.get("mitre technique") or kv.get("mitre_technique") or ""
 
             rate_str = kv.get("connection rate", kv.get("rate", ""))
             try:
@@ -285,12 +304,18 @@ def _parse_kv_blocks(cleaned_text: str) -> List[Dict[str, Any]]:
                 "protocol": (kv.get("protocol") or "TCP").upper(),
                 "duration": duration,
                 "bytes_sent": bytes_sent,
-                "bytes_received": 0,
+                "bytes_received": bytes_received,
                 "packets": packets,
                 "connection_state": state_raw,
                 "rate": rate_val,
                 "repeated_connections": rep_val,
                 "failed_attempts": fail_val,
+                "method": method,
+                "path": path,
+                "status_code": status_code,
+                "event_type": event_type,
+                "indicator": indicator,
+                "mitre_technique": mitre_technique,
                 "parsing_warnings": []
             }
             events.append(event)

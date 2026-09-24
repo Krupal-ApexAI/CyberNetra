@@ -10,7 +10,8 @@ import os
 import time
 import json
 import logging
-from datetime import datetime, timezone
+import random
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional
 from collections import deque
 
@@ -68,24 +69,28 @@ SCENARIO_BASELINES = {
 }
 
 INITIAL_LIVE_FEEDS = [
-    {"time": "19:15:12", "src": "192.168.1.10", "dst": "127.0.0.1:9000", "proto": "TCP", "size": "524", "status": "Malicious", "attack_type": "Exploits", "confidence": "98.5%", "indicator": "SQL Injection attempt: /search?q=' OR 1=1"},
-    {"time": "19:15:11", "src": "10.0.0.5", "dst": "192.168.1.1", "proto": "UDP", "size": "230", "status": "Suspicious", "attack_type": "Reconnaissance", "confidence": "84.2%", "indicator": "Port probe velocity spike"},
-    {"time": "19:15:10", "src": "172.16.0.3", "dst": "127.0.0.1:9000", "proto": "TCP", "size": "312", "status": "Normal", "attack_type": "Normal", "confidence": "99.1%", "indicator": "GET /health standard check"},
-    {"time": "19:15:10", "src": "192.168.1.23", "dst": "127.0.0.1:9000", "proto": "TCP", "size": "620", "status": "Malicious", "attack_type": "BruteForce", "confidence": "96.7%", "indicator": "Rapid 401 Unauthorized bursts on /auth/login"},
-    {"time": "19:15:09", "src": "10.0.0.8", "dst": "172.217.160.78", "proto": "UDP", "size": "198", "status": "Normal", "attack_type": "Normal", "confidence": "99.8%", "indicator": "Standard DNS resolution request"},
-    {"time": "19:15:08", "src": "192.168.1.11", "dst": "127.0.0.1:9000", "proto": "TCP", "size": "430", "status": "Suspicious", "attack_type": "Generic", "confidence": "76.4%", "indicator": "High request rate on /feedback"},
-    {"time": "19:15:07", "src": "172.16.0.7", "dst": "192.168.1.5", "proto": "TCP", "size": "512", "status": "Normal", "attack_type": "Normal", "confidence": "98.9%", "indicator": "TLS handshake completed"},
-    {"time": "19:15:06", "src": "10.0.0.12", "dst": "142.250.190.14", "proto": "UDP", "size": "220", "status": "Normal", "attack_type": "Normal", "confidence": "99.4%", "indicator": "NTP time synchronization"},
+    {"time": "12:15:12", "src": "192.168.1.10", "dst": "127.0.0.1:9000", "proto": "TCP", "size": "524", "status": "Malicious", "attack_type": "Exploits", "confidence": "98.5%", "indicator": "SQL Injection attempt: /search?q=' OR 1=1"},
+    {"time": "12:15:11", "src": "10.0.0.5", "dst": "192.168.1.1", "proto": "UDP", "size": "230", "status": "Suspicious", "attack_type": "Reconnaissance", "confidence": "84.2%", "indicator": "Port probe velocity spike"},
+    {"time": "12:15:10", "src": "172.16.0.3", "dst": "127.0.0.1:9000", "proto": "TCP", "size": "312", "status": "Normal", "attack_type": "Normal", "confidence": "99.1%", "indicator": "GET /health standard check"},
+    {"time": "12:15:10", "src": "192.168.1.23", "dst": "127.0.0.1:9000", "proto": "TCP", "size": "620", "status": "Malicious", "attack_type": "BruteForce", "confidence": "96.7%", "indicator": "Rapid 401 Unauthorized bursts on /auth/login"},
+    {"time": "12:15:09", "src": "10.0.0.8", "dst": "172.217.160.78", "proto": "UDP", "size": "198", "status": "Normal", "attack_type": "Normal", "confidence": "99.8%", "indicator": "Standard DNS resolution request"},
+    {"time": "12:15:08", "src": "192.168.1.11", "dst": "127.0.0.1:9000", "proto": "TCP", "size": "430", "status": "Suspicious", "attack_type": "Generic", "confidence": "76.4%", "indicator": "High request rate on /feedback"},
+    {"time": "12:15:07", "src": "172.16.0.7", "dst": "192.168.1.5", "proto": "TCP", "size": "512", "status": "Normal", "attack_type": "Normal", "confidence": "98.9%", "indicator": "TLS handshake completed"},
+    {"time": "12:15:06", "src": "10.0.0.12", "dst": "142.250.190.14", "proto": "UDP", "size": "220", "status": "Normal", "attack_type": "Normal", "confidence": "99.4%", "indicator": "NTP time synchronization"},
 ]
 
-INITIAL_TRAFFIC_SERIES = [
-    {"time": "19:05", "normal": 1100, "suspicious": 180, "malicious": 45},
-    {"time": "19:07", "normal": 1150, "suspicious": 240, "malicious": 80},
-    {"time": "19:09", "normal": 1080, "suspicious": 290, "malicious": 140},
-    {"time": "19:11", "normal": 950, "suspicious": 340, "malicious": 280},
-    {"time": "19:13", "normal": 1120, "suspicious": 280, "malicious": 190},
-    {"time": "19:15", "normal": 1160, "suspicious": 210, "malicious": 60},
-]
+def get_initial_traffic_series() -> List[Dict[str, Any]]:
+    now = datetime.now()
+    series = []
+    for i in range(6, 0, -1):
+        t = (now - timedelta(minutes=i * 2)).strftime("%H:%M")
+        series.append({
+            "time": t,
+            "normal": 1150 + random.randint(-30, 40),
+            "suspicious": 95 + random.randint(-15, 20),
+            "malicious": 28 + random.randint(-8, 12),
+        })
+    return series
 
 
 class NetworkStatsEngine:
@@ -97,7 +102,7 @@ class NetworkStatsEngine:
 
         # Ring buffers
         self.live_feeds = deque(INITIAL_LIVE_FEEDS, maxlen=50)
-        self.traffic_series = deque(INITIAL_TRAFFIC_SERIES, maxlen=12)
+        self.traffic_series = deque(get_initial_traffic_series(), maxlen=12)
 
         # Telemetry queue for background ML processing
         self._pending_telemetry: deque = deque(maxlen=200)
@@ -126,22 +131,41 @@ class NetworkStatsEngine:
         dst = "127.0.0.1:9000"
         proto = "TCP"
         size = entry.get("bytes_received", 350) + entry.get("bytes_sent", 250)
+        path = str(entry.get("path", "")).lower()
+        method = str(entry.get("method", "GET")).upper()
+        status_code = int(entry.get("status_code", 200) or 200)
+        indicator = entry.get("indicator", "") or f"{method} {entry.get('path', '/')}"
         event_type = entry.get("event_type", "normal").lower()
-        indicator = entry.get("indicator", "") or f"{entry.get('method', 'GET')} {entry.get('path', '/')}"
 
-        # Determine status from ML prediction or event_type
-        status = "Normal"
-        attack_type = "Normal"
-        confidence = "98.2%"
+        # Check for verified benign health checks / admin telemetry
+        is_routine_clean = (
+            (event_type == "normal" or path in ["/health", "/api/telemetry/recent", "/favicon.ico"])
+            and not entry.get("indicator")
+            and status_code < 400
+        )
 
-        if ml_prediction:
+        # Determine status from benign check, ML prediction or event_type
+        if is_routine_clean:
+            status = "Normal"
+            attack_type = "Normal"
+            confidence = "99.4%"
+        elif ml_prediction:
             pred_class = ml_prediction.get("prediction", "Normal")
             if pred_class == "Attack":
-                status = "Malicious"
-                attack_type = ml_prediction.get("attack_type") or "Exploits"
-                conf_val = ml_prediction.get("attack_confidence") or ml_prediction.get("detection_confidence", 0.95)
-                confidence = f"{conf_val * 100:.1f}%"
-            elif pred_class == "Suspicious" or ml_prediction.get("risk_level") == "MEDIUM":
+                det_conf = float(ml_prediction.get("detection_confidence", 0.95) or 0.95)
+                atk_conf = float(ml_prediction.get("attack_confidence", 0.90) or 0.90)
+                predicted_atk = ml_prediction.get("attack_type") or "Exploits"
+
+                # If low-to-medium confidence or reconnaissance probe, map to Suspicious
+                if det_conf < 0.65 or atk_conf < 0.55 or predicted_atk in ("Reconnaissance", "Generic"):
+                    status = "Suspicious"
+                    attack_type = predicted_atk
+                    confidence = f"{max(det_conf, atk_conf) * 100:.1f}%"
+                else:
+                    status = "Malicious"
+                    attack_type = predicted_atk
+                    confidence = f"{atk_conf * 100:.1f}%"
+            elif pred_class == "Suspicious" or ml_prediction.get("risk_level") in ("MEDIUM", "HIGH"):
                 status = "Suspicious"
                 attack_type = ml_prediction.get("attack_type") or "Generic"
                 conf_val = ml_prediction.get("detection_confidence", 0.75)
@@ -154,10 +178,14 @@ class NetworkStatsEngine:
                 status = "Malicious"
                 attack_type = "Exploits" if ("sqli" in event_type or "xss" in event_type) else ("DoS" if "dos" in event_type else "BruteForce")
                 confidence = "97.4%"
-            elif "suspicious" in event_type or entry.get("status_code", 200) == 401:
+            elif "suspicious" in event_type or status_code == 401:
                 status = "Suspicious"
-                attack_type = "Reconnaissance"
+                attack_type = "Reconnaissance" if "recon" in event_type else "Generic"
                 confidence = "85.0%"
+            else:
+                status = "Normal"
+                attack_type = "Normal"
+                confidence = "98.9%"
 
         # Update counters
         self.live_added_total += 1
@@ -210,28 +238,38 @@ class NetworkStatsEngine:
             }
             self.dynamic_alerts.appendleft(alert)
 
-    def _update_traffic_series(self, new_status: str):
-        """Update recent time series bucket with new event count."""
+    def _update_traffic_series(self, new_status: str, scenario: str = "normal"):
+        """Update recent time series bucket with new event count (true throughput window)."""
         now_bucket = datetime.now().strftime("%H:%M")
         if self.traffic_series and self.traffic_series[-1]["time"] == now_bucket:
             bucket = self.traffic_series[-1]
         else:
-            # Create a new bucket
-            prev = self.traffic_series[-1] if self.traffic_series else {"normal": 1000, "suspicious": 150, "malicious": 50}
+            # Baseline throughput per minute based on scenario
+            if scenario == "ddos":
+                base_normal, base_susp, base_mal = 850, 320, 1800
+            elif scenario == "progression":
+                base_normal, base_susp, base_mal = 950, 350, 420
+            elif scenario == "suspicious":
+                base_normal, base_susp, base_mal = 1050, 280, 80
+            else:
+                base_normal, base_susp, base_mal = 1180, 95, 25
+
             bucket = {
                 "time": now_bucket,
-                "normal": max(500, prev["normal"] + int(prev["normal"] * 0.02)),
-                "suspicious": prev["suspicious"],
-                "malicious": prev["malicious"]
+                "normal": base_normal + random.randint(-20, 25),
+                "suspicious": base_susp + random.randint(-10, 15),
+                "malicious": base_mal + random.randint(-5, 10),
             }
             self.traffic_series.append(bucket)
 
+        # Increment real-time throughput for this minute
         if new_status == "Malicious":
-            bucket["malicious"] += 12
+            bucket["malicious"] += 20
+            bucket["normal"] = max(200, bucket["normal"] - 5)
         elif new_status == "Suspicious":
-            bucket["suspicious"] += 8
+            bucket["suspicious"] += 12
         else:
-            bucket["normal"] += 15
+            bucket["normal"] += 10
 
     def get_network_stats(self, scenario: str, active_devices: int = 38, risk_score: int = 12, risk_level: str = "LOW") -> Dict[str, Any]:
         """Compute aggregated network stats incorporating scenario baseline and live telemetry."""

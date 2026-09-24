@@ -17,13 +17,14 @@ import ModelRegistryView from './components/ModelRegistryView';
 import LogAnalysis from './components/LogAnalysis';
 import ExplainabilityPanel from './components/ExplainabilityPanel';
 import VulnerableLab from './components/VulnerableLab';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ShieldAlert, Activity, Flame } from 'lucide-react';
 
 import {
   fetchDashboard,
   switchSimulation,
   fetchModelStatus,
-  fetchNetworkStats
+  fetchNetworkStats,
+  fetchThreats
 } from './services/api';
 
 export default function App() {
@@ -35,22 +36,27 @@ export default function App() {
   const [isSwitching, setIsSwitching] = useState(false);
   const [modelInfo, setModelInfo] = useState(null);
   const [networkStats, setNetworkStats] = useState(null);
+  const [liveThreats, setLiveThreats] = useState([]);
 
   useEffect(() => {
     fetchModelStatus().then((info) => setModelInfo(info));
   }, []);
 
-  // Poll real-time network statistics continuously
+  // Poll real-time network statistics & threats continuously
   useEffect(() => {
     let mounted = true;
     const loadStats = async () => {
       try {
-        const res = await fetchNetworkStats(scenario);
-        if (mounted && res) {
-          setNetworkStats(res);
+        const [statsRes, threatsRes] = await Promise.all([
+          fetchNetworkStats(scenario),
+          fetchThreats()
+        ]);
+        if (mounted) {
+          if (statsRes) setNetworkStats(statsRes);
+          if (threatsRes?.data) setLiveThreats(threatsRes.data);
         }
       } catch (err) {
-        console.warn("Failed to fetch network stats:", err);
+        console.warn("Failed to fetch telemetry:", err);
       }
     };
 
@@ -61,6 +67,7 @@ export default function App() {
       clearInterval(interval);
     };
   }, [scenario]);
+
 
   // Reset scroll to top on tab switch
   useEffect(() => {
@@ -142,15 +149,64 @@ export default function App() {
                     Dashboard
                   </h1>
                   <p className="text-xs text-slate-500 mt-1">
-                    Real-time network security overview
+                    Real-time network security overview • Automated ML inference pipeline
                   </p>
                 </div>
 
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-xs cursor-pointer">
-                  <span>Last 1 Hour</span>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setActiveTab('lab')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition shadow-xs cursor-pointer"
+                  >
+                    <Activity className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Open Vulnerable Lab</span>
+                  </button>
+
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-xs cursor-pointer">
+                    <span>Last 1 Hour</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+                </div>
               </div>
+
+              {/* Active Lab Attack Alert Banner */}
+              {liveThreats.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+                      <ShieldAlert className="w-5 h-5 text-red-600 animate-pulse" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-red-950 uppercase tracking-wider">
+                          Active Sandbox Exploit Detected
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-600 text-white animate-pulse">
+                          LIVE LAB ATTACK
+                        </span>
+                      </div>
+                      <p className="text-xs text-red-800 mt-0.5 font-medium">
+                        <strong>{liveThreats[0].name}</strong> intercepted from {liveThreats[0].source_ip} targeting {liveThreats[0].dest_ip} • ML Confidence: {liveThreats[0].confidence}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                    <button
+                      onClick={() => setActiveTab('threats')}
+                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg shadow-xs transition cursor-pointer"
+                    >
+                      Investigate Threat
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('explainability')}
+                      className="px-3 py-1.5 bg-white border border-red-200 hover:bg-red-50 text-red-700 text-xs font-semibold rounded-lg shadow-xs transition cursor-pointer"
+                    >
+                      AI Explanation
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* 4 Stat Cards Matching Mockup 2 */}
               <StatCards stats={networkStats} scenario={scenario} />

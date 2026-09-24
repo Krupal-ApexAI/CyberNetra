@@ -112,11 +112,17 @@ export default function NetworkGraph({ scenario = 'normal', onSelectScenario, on
     if (!isPlaying) return;
 
     // Fetch live backend topology
-    fetchNetworkGraph().then((data) => {
-      if (data) setBackendTopology(data);
-    });
+    const pollTopology = () => {
+      fetchNetworkGraph().then((res) => {
+        const data = res?.data || res;
+        if (data) setBackendTopology(data);
+      });
+    };
+
+    pollTopology();
 
     const interval = setInterval(() => {
+      pollTopology();
       const stats = scenarioStats[scenario] || scenarioStats.normal;
       const jitter = Math.floor(Math.random() * (stats.basePackets * 0.15)) - (stats.basePackets * 0.07);
       const newPackets = Math.max(100, Math.round(stats.basePackets + jitter));
@@ -128,10 +134,11 @@ export default function NetworkGraph({ scenario = 'normal', onSelectScenario, on
         ...prev,
         lastSeen: new Date().toLocaleTimeString()
       }));
-    }, 1800);
+    }, 2500);
 
     return () => clearInterval(interval);
   }, [isPlaying, scenario]);
+
 
   const timeframeOptions = ['Last 15 Minutes', 'Last 1 Hour', 'Last 6 Hours', 'Last 24 Hours'];
 
